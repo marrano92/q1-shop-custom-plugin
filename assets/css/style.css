@@ -1,7 +1,7 @@
 /* [ai-generated-code] */
 .stripe-payment-alert {
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background-color: #fff8e1;
+    border: 1px solid #ffe0b2;
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 30px;
@@ -15,14 +15,14 @@
 }
 
 .stripe-payment-alert h3 {
-    color: #2c3e50;
+    color: #ff8f00;
     font-size: 18px;
     margin: 0;
     font-weight: 600;
 }
 
 .stripe-payment-alert p {
-    color: #6c757d;
+    color: #ffa000;
     margin: 0;
     font-size: 14px;
     line-height: 1.5;
