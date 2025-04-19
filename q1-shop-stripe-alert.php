@@ -21,8 +21,17 @@ if (!defined('ABSPATH')) {
 
 class Q1_Shop_Stripe_Alert {
     public function __construct() {
+        add_action('plugins_loaded', array($this, 'load_textdomain'));
         add_action('woocommerce_before_checkout_form', array($this, 'add_stripe_alert'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
+    }
+
+    public function load_textdomain() {
+        load_plugin_textdomain(
+            'q1-shop-stripe-alert',
+            false,
+            dirname(plugin_basename(__FILE__)) . '/languages/'
+        );
     }
 
     public function add_stripe_alert() {
