@@ -105,6 +105,92 @@
     border: 1px solid #ffcdd2;
 }
 
+/* Enhanced Card Input Fields */
+.wc-stripe-upe-element .__PrivateStripeElement {
+    min-height: 60px !important;
+    padding: 10px 15px !important;
+    background: #ffffff !important;
+    border: 2px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease !important;
+}
+
+.wc-stripe-upe-element .__PrivateStripeElement:hover {
+    border-color: #ff8f00 !important;
+    box-shadow: 0 0 0 2px rgba(255, 143, 0, 0.1) !important;
+}
+
+.wc-stripe-upe-element .__PrivateStripeElement iframe {
+    height: 60px !important;
+    min-height: 60px !important;
+}
+
+/* Card Input Field Focus State */
+.wc-stripe-upe-element .__PrivateStripeElement--focus {
+    border-color: #ff8f00 !important;
+    box-shadow: 0 0 0 3px rgba(255, 143, 0, 0.2) !important;
+}
+
+/* Card Input Field Error State */
+.wc-stripe-upe-element .__PrivateStripeElement--invalid {
+    border-color: #dc3545 !important;
+    background-color: #fff5f5 !important;
+}
+
+/* Card Input Field Placeholder */
+.wc-stripe-upe-element .__PrivateStripeElement::placeholder {
+    color: #9e9e9e !important;
+    font-size: 16px !important;
+}
+
+/* Card Input Field Text */
+.wc-stripe-upe-element .__PrivateStripeElement input {
+    font-size: 16px !important;
+    color: #333 !important;
+    padding: 10px !important;
+    height: 40px !important;
+}
+
+/* Card Input Field Container */
+.wc-stripe-upe-element {
+    margin: 15px 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+/* Card Input Field Label */
+.wc-stripe-upe-element label {
+    display: block !important;
+    margin-bottom: 8px !important;
+    color: #333 !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+}
+
+/* Card Input Field Helper Text */
+.wc-stripe-upe-element .helper-text {
+    margin-top: 8px !important;
+    font-size: 12px !important;
+    color: #666 !important;
+}
+
+/* Card Input Field Animation */
+.wc-stripe-upe-element .__PrivateStripeElement {
+    animation: fadeIn 0.3s ease-in-out !important;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Adjustments */
 @media (max-width: 768px) {
     .stripe-payment-alert {
         padding: 15px;
@@ -129,5 +215,21 @@
 
     .wc_payment_method.payment_method_stripe .payment_box {
         padding: 15px;
+    }
+
+    .wc-stripe-upe-element .__PrivateStripeElement {
+        min-height: 50px !important;
+        padding: 8px 12px !important;
+    }
+
+    .wc-stripe-upe-element .__PrivateStripeElement iframe {
+        height: 50px !important;
+        min-height: 50px !important;
+    }
+
+    .wc-stripe-upe-element .__PrivateStripeElement input {
+        font-size: 14px !important;
+        padding: 8px !important;
+        height: 35px !important;
     }
 } 
