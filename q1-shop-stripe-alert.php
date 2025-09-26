@@ -58,4 +58,19 @@ class Q1_Shop_Stripe_Alert {
 }
 
 // Initialize the plugin
-new Q1_Shop_Stripe_Alert(); 
+new Q1_Shop_Stripe_Alert();
+
+add_filter('woocommerce_loop_add_to_cart_link', function($html, $product){
+    if (! $product || ! $product->is_purchasable()) return $html;
+    $text = esc_html($product->add_to_cart_text());
+    $attrs = [
+            'href' => '#',
+            'data-quantity' => '1',
+            'data-product_id' => $product->get_id(),
+            'class' => 'button product_type_simple add_to_cart_button ajax_add_to_cart',
+            'rel' => 'nofollow'
+    ];
+    $attr = '';
+    foreach ($attrs as $k=>$v) $attr .= sprintf(' %s="%s"', esc_attr($k), esc_attr($v));
+    return sprintf('<a%s>%s</a>', $attr, $text);
+}, 99, 2);
