@@ -635,6 +635,187 @@
     }
 
     /**
+     * Send Enhanced Ecommerce remove_from_cart event to GTM using gtag format
+     */
+    function sendGTMRemoveFromCartEvent(productData) {
+        // Ensure we have required data
+        if (!productData.id || !productData.name) {
+            return;
+        }
+
+        // Prevent duplicate events - check if this product was already tracked
+        var eventKey = 'gtm_rfc_' + productData.id + '_' + Date.now();
+        var lastEventTime = parseInt(window.sessionStorage.getItem('last_gtm_remove_from_cart_time') || '0');
+        
+        // If tracked within last 2 seconds, skip
+        if (Date.now() - lastEventTime < 2000) {
+            return; // Skip duplicate event
+        }
+        window.sessionStorage.setItem('last_gtm_remove_from_cart_time', Date.now().toString());
+
+        var currency = 'EUR';
+        if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.currency) {
+            currency = q1ShopGTM.currency;
+        }
+
+        // Calculate total value (price * quantity)
+        var price = parseFloat(productData.price) || 0;
+        var quantity = parseInt(productData.quantity, 10) || 1;
+        var value = (price * quantity).toFixed(2);
+
+        // Build item object for gtag event
+        var item = {
+            item_id: productData.sku || String(productData.id),
+            item_name: productData.name,
+            price: parseFloat(price.toFixed(2)),
+            quantity: quantity,
+            index: 0
+        };
+
+        // Add optional fields
+        if (productData.category) {
+            item.item_category = productData.category;
+            
+            // If we have multiple categories, add them as item_category2, item_category3, etc.
+            if (productData.categories && Array.isArray(productData.categories)) {
+                productData.categories.forEach(function(cat, index) {
+                    if (index > 0) {
+                        item['item_category' + (index + 1)] = cat;
+                    }
+                });
+            }
+        }
+
+        if (productData.variant) {
+            item.item_variant = productData.variant;
+        }
+
+        if (productData.brand) {
+            item.item_brand = productData.brand;
+        }
+
+        if (productData.coupon) {
+            item.coupon = productData.coupon;
+        }
+
+        if (productData.discount !== undefined) {
+            item.discount = parseFloat(productData.discount).toFixed(2);
+        }
+
+        // Build event data object
+        var eventData = {
+            currency: currency,
+            value: parseFloat(value),
+            items: [item]
+        };
+
+        // Send event using gtag if available, otherwise use dataLayer
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'remove_from_cart', eventData);
+        } else {
+            // Fallback to dataLayer for GTM
+            window.dataLayer = window.dataLayer || [];
+            var dataLayerEvent = {
+                'event': 'remove_from_cart',
+                'currency': currency,
+                'value': parseFloat(value),
+                'items': [item]
+            };
+            window.dataLayer.push(dataLayerEvent);
+        }
+    }
+
+    /**
+     * Get product data from remove button/link
+     */
+    function getRemoveFromCartProductData($removeLink) {
+        var productData = {
+            id: '',
+            name: '',
+            sku: '',
+            price: '',
+            category: '',
+            variant: '',
+            quantity: 1
+        };
+
+        // Get product ID from data attributes
+        var productId = $removeLink.data('product_id') || $removeLink.attr('data-product_id');
+        if (productId) {
+            productData.id = productId;
+        }
+
+        // Get SKU from data attributes
+        var sku = $removeLink.data('product_sku') || $removeLink.attr('data-product_sku');
+        if (sku) {
+            productData.sku = sku;
+        }
+
+        // Get product name from aria-label
+        var ariaLabel = $removeLink.attr('aria-label') || '';
+        if (ariaLabel) {
+            // Extract product name from aria-label (e.g., "Rimuovi Product Name dal carrello")
+            var match = ariaLabel.match(/Rimuovi\s+(.+?)\s+dal\s+carrello/i);
+            if (match) {
+                productData.name = match[1].trim();
+            } else {
+                // Fallback: use full aria-label
+                productData.name = ariaLabel.replace(/Rimuovi\s+/i, '').replace(/\s+dal\s+carrello/i, '').trim();
+            }
+        }
+
+        // Get the cart item row
+        var $cartItem = $removeLink.closest('.cart_item, .woocommerce-cart-form__cart-item');
+        
+        if ($cartItem.length) {
+            // Get product name from product-name cell
+            if (!productData.name) {
+                var $productName = $cartItem.find('.product-name a, .product-name');
+                if ($productName.length) {
+                    productData.name = $productName.first().text().trim();
+                }
+            }
+
+            // Get price from product-price cell
+            var $price = $cartItem.find('.product-price .amount, .product-price .woocommerce-Price-amount');
+            if ($price.length) {
+                var priceText = $price.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+                productData.price = parseFloat(priceText) || '';
+            }
+
+            // Get quantity from product-quantity cell
+            var $quantity = $cartItem.find('.product-quantity input.qty, .qty');
+            if ($quantity.length) {
+                productData.quantity = parseInt($quantity.val() || $quantity.text(), 10) || 1;
+            }
+
+            // Get category if available
+            var $category = $cartItem.find('.product-category a, .posted_in a');
+            if ($category.length) {
+                productData.category = $category.first().text().trim();
+            }
+        }
+
+        // Use localized data if available and we're missing info
+        if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.product) {
+            if (!productData.name && q1ShopGTM.product.name) {
+                productData.name = q1ShopGTM.product.name;
+            }
+            if (!productData.sku && q1ShopGTM.product.sku) {
+                productData.sku = q1ShopGTM.product.sku;
+            }
+            if (!productData.price && q1ShopGTM.product.price) {
+                productData.price = q1ShopGTM.product.price;
+            }
+            if (!productData.category && q1ShopGTM.product.category) {
+                productData.category = q1ShopGTM.product.category;
+            }
+        }
+
+        return productData;
+    }
+
+    /**
      * Send Enhanced Ecommerce view_cart event to GTM using gtag format
      */
     function sendGTMViewCartEvent(cartData) {
@@ -968,6 +1149,16 @@
             handleAddedToCart(event, fragments, cartHash, $button);
         });
 
+        // Listen for WooCommerce removed_from_cart event
+        // This is triggered when a product is removed from cart
+        $(document.body).on('removed_from_cart', function(event, fragments, cartHash, $removeLink) {
+            // Mark link as tracked to prevent duplicate events
+            if ($removeLink && $removeLink.length) {
+                $removeLink.data('gtm-removed-tracked', true);
+            }
+            handleRemovedFromCart(event, $removeLink);
+        });
+
         // Also listen for wc_fragment_refresh which happens after AJAX add to cart
         // This is a fallback in case added_to_cart event is not triggered
         // But we'll skip this if added_to_cart already fired
@@ -1019,6 +1210,29 @@
             
             // Store button reference for later use
             $form.data('submit-button', $button);
+        });
+
+        // Direct click listener for remove from cart buttons (fallback)
+        // This ensures we catch the event even if WooCommerce removed_from_cart event doesn't fire
+        $(document).on('click', '.product-remove a.remove, a.remove[data-product_id]', function(e) {
+            var $removeLink = $(this);
+            var productId = $removeLink.data('product_id') || $removeLink.attr('data-product_id');
+            
+            // Only track if it's a remove link with product_id
+            if (productId && $removeLink.hasClass('remove')) {
+                // Store button reference
+                $removeLink.data('gtm-remove-click-time', Date.now());
+                
+                // Wait a bit for WooCommerce to process the removal
+                // WooCommerce usually fires removed_from_cart within 200-500ms
+                setTimeout(function() {
+                    // Check if WooCommerce event already fired
+                    if (!$removeLink.data('gtm-removed-tracked')) {
+                        // Event didn't fire, track manually
+                        handleRemovedFromCart(null, $removeLink);
+                    }
+                }, 600);
+            }
         });
     }
 
