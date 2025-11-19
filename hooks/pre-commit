@@ -7,17 +7,22 @@
 # Get the list of files being committed
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
 
-# Check if JavaScript file is being committed
+# Check if JavaScript file or GTM tracking class is being committed
 JS_FILE_CHANGED=false
+GTM_CLASS_CHANGED=false
 for file in $STAGED_FILES; do
     if [[ "$file" == *"assets/js/gtm-add-to-cart.js"* ]]; then
         JS_FILE_CHANGED=true
         break
     fi
+    if [[ "$file" == *"includes/class-q1-shop-gtm-tracking.php"* ]]; then
+        GTM_CLASS_CHANGED=true
+        break
+    fi
 done
 
-# If JavaScript file changed, increment version
-if [ "$JS_FILE_CHANGED" = true ]; then
+# If JavaScript file or GTM class changed, increment version
+if [ "$JS_FILE_CHANGED" = true ] || [ "$GTM_CLASS_CHANGED" = true ]; then
     VERSION_FILE="includes/class-q1-shop-gtm-tracking.php"
     
     if [ -f "$VERSION_FILE" ]; then
