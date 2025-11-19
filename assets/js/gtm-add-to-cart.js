@@ -278,11 +278,25 @@
     /**
      * Send Enhanced Ecommerce event to GTM using gtag format
      */
-    function sendGTMAddToCartEvent(productData) {
+    function sendGTMAddToCartEvent(productData, $button) {
         // Ensure we have required data
         if (!productData.id || !productData.name) {
             return;
         }
+
+        // Prevent duplicate events using sessionStorage
+        // Create a unique key for this product add to cart event
+        var eventKey = 'gtm_atc_' + productData.id;
+        var lastEventTime = parseInt(window.sessionStorage.getItem(eventKey) || '0');
+        var currentTime = Date.now();
+        
+        // If the same product was tracked within the last 3 seconds, skip
+        if (lastEventTime && (currentTime - lastEventTime) < 3000) {
+            return; // Skip duplicate event
+        }
+        
+        // Store this event timestamp to prevent duplicates
+        window.sessionStorage.setItem(eventKey, currentTime.toString());
 
         var currency = 'EUR';
         if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.currency) {
@@ -374,8 +388,11 @@
         // Remove loading class if present
         if ($triggerButton && $triggerButton.length) {
             $triggerButton.removeClass('loading');
-            // Mark as tracked
-            $triggerButton.data('gtm-tracked', true);
+        }
+
+        // Check if already tracked to prevent duplicates
+        if ($triggerButton && $triggerButton.length && $triggerButton.data('gtm-tracked')) {
+            return; // Already tracked, skip
         }
 
         // Get product data
@@ -384,7 +401,11 @@
         // Only send event if we have required data
         if (productData.id && productData.name) {
             // Send GTM event
-            sendGTMAddToCartEvent(productData);
+            sendGTMAddToCartEvent(productData, $triggerButton);
+            // Mark as tracked
+            if ($triggerButton && $triggerButton.length) {
+                $triggerButton.data('gtm-tracked', true);
+            }
         }
     }
 
@@ -393,19 +414,28 @@
      */
     function initGTMTracking() {
         // Listen for WooCommerce added_to_cart event
+        // This is the primary method - WooCommerce triggers this after successful add to cart
         $(document.body).on('added_to_cart', function(event, fragments, cartHash, $button) {
+            // Mark button as tracked immediately to prevent click listener from also tracking
+            if ($button && $button.length) {
+                $button.data('gtm-tracked', true);
+            }
             handleAddedToCart(event, fragments, cartHash, $button);
         });
 
         // Also listen for wc_fragment_refresh which happens after AJAX add to cart
         // This is a fallback in case added_to_cart event is not triggered
+        // But we'll skip this if added_to_cart already fired
         $(document.body).on('wc_fragment_refresh', function(event, fragments) {
             // Check if this was triggered by an add to cart action
             // by looking for the button that was clicked
             var $button = $('.single_add_to_cart_button.loading, .add_to_cart_button.loading');
-            if ($button.length) {
+            if ($button.length && !$button.data('gtm-tracked')) {
                 setTimeout(function() {
-                    handleAddedToCart(event, fragments, null, $button);
+                    // Double check it's still not tracked
+                    if (!$button.data('gtm-tracked')) {
+                        handleAddedToCart(event, fragments, null, $button);
+                    }
                 }, 100);
             }
         });
@@ -425,26 +455,15 @@
                 $button.data('gtm-tracked', false);
                 $button.data('gtm-click-time', Date.now());
                 
-                // Track immediately as primary method, then verify if event fires
-                var trackedImmediately = false;
-                
-                // Try to track immediately
+                // Set a timeout to track if WooCommerce event doesn't fire
+                // WooCommerce usually fires added_to_cart within 200-500ms
+                // We'll wait a bit longer to give WooCommerce time to fire the event
                 setTimeout(function() {
+                    // Only track if WooCommerce event didn't fire
                     if (!$button.data('gtm-tracked')) {
                         handleAddedToCart(null, null, null, $button);
-                        trackedImmediately = true;
                     }
-                }, 100);
-                
-                // Set a timeout to verify if the event fires
-                // WooCommerce usually fires added_to_cart within 200-500ms
-                setTimeout(function() {
-                    if (!$button.data('gtm-tracked') && !trackedImmediately) {
-                        // Event didn't fire, track manually
-                        handleAddedToCart(null, null, null, $button);
-                        $button.data('gtm-tracked', true);
-                    }
-                }, 800);
+                }, 600);
             }
         });
 
