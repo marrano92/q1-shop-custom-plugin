@@ -10,6 +10,17 @@
 
     // Ensure dataLayer exists
     window.dataLayer = window.dataLayer || [];
+    
+    // Verify jQuery is available
+    if (typeof $ === 'undefined' || typeof jQuery === 'undefined') {
+        console.error('Q1 Shop GTM: jQuery is not available!');
+        return;
+    }
+    
+    console.log('Q1 Shop GTM: Script wrapper executed', {
+        jQuery: typeof $ !== 'undefined',
+        jQueryVersion: typeof $ !== 'undefined' ? $.fn.jquery : 'N/A'
+    });
 
     /**
      * Get product data from the form or page
@@ -438,17 +449,38 @@
             }
         });
 
+        // Also add a more generic listener for any element with data-product_id
+        // This catches buttons that might not have the exact classes we expect
+        $(document).on('click', '[data-product_id]', function(e) {
+            var $element = $(this);
+            var productId = $element.data('product_id') || $element.attr('data-product_id');
+            var hasAjaxClass = $element.hasClass('ajax_add_to_cart') || $element.hasClass('add_to_cart_button');
+            
+            // Only process if it looks like an add to cart button
+            if (productId && (hasAjaxClass || $element.attr('href') === '#')) {
+                console.log('Q1 Shop GTM: Element with data-product_id clicked (generic listener)', {
+                    element: $element,
+                    productId: productId,
+                    classes: $element.attr('class'),
+                    href: $element.attr('href')
+                });
+            }
+        });
+
         // Direct click listener as additional fallback for AJAX buttons
         // This ensures we catch the event even if WooCommerce events don't fire
         // This is especially important for menu items where events might not propagate correctly
-        $(document.body).on('click', '.add_to_cart_button.ajax_add_to_cart', function(e) {
+        // Use document instead of document.body for better event capture
+        $(document).on('click', '.add_to_cart_button.ajax_add_to_cart', function(e) {
             var $button = $(this);
             var productId = $button.data('product_id') || $button.attr('data-product_id');
             
-            console.log('Q1 Shop GTM: Button clicked', { 
+            console.log('Q1 Shop GTM: Button clicked (direct listener)', { 
                 button: $button, 
                 productId: productId,
-                hasAjaxClass: $button.hasClass('ajax_add_to_cart')
+                hasAjaxClass: $button.hasClass('ajax_add_to_cart'),
+                classes: $button.attr('class'),
+                href: $button.attr('href')
             });
             
             // Only track if it's an AJAX button with product_id
@@ -496,24 +528,65 @@
         });
     }
 
+    // Initialize immediately and also on DOM ready
+    function initializeTracking() {
+        console.log('Q1 Shop GTM: Initializing tracking...', {
+            jQuery: typeof jQuery !== 'undefined',
+            dataLayer: typeof window.dataLayer !== 'undefined',
+            gtag: typeof gtag !== 'undefined',
+            buttonsCount: $('.add_to_cart_button.ajax_add_to_cart').length
+        });
+        initGTMTracking();
+        
+        // Log all buttons found
+        var $allButtons = $('.add_to_cart_button.ajax_add_to_cart');
+        console.log('Q1 Shop GTM: Found ' + $allButtons.length + ' AJAX add to cart buttons');
+        $allButtons.each(function(index) {
+            var $btn = $(this);
+            console.log('Q1 Shop GTM: Button ' + (index + 1), {
+                productId: $btn.data('product_id') || $btn.attr('data-product_id'),
+                classes: $btn.attr('class'),
+                inMenu: $btn.closest('.menu-item, nav').length > 0
+            });
+        });
+    }
+
     // Initialize when DOM is ready
     $(document).ready(function() {
         console.log('Q1 Shop GTM: DOM ready, initializing...');
-        initGTMTracking();
+        initializeTracking();
     });
 
     // Also initialize if DOM is already ready
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
         console.log('Q1 Shop GTM: DOM already ready, initializing immediately...');
-        setTimeout(initGTMTracking, 1);
+        setTimeout(initializeTracking, 1);
     }
 
-    // Log script load
+    // Log script load - this should appear immediately when script loads
     console.log('Q1 Shop GTM: Script loaded', {
         jQuery: typeof jQuery !== 'undefined',
         dataLayer: typeof window.dataLayer !== 'undefined',
-        gtag: typeof gtag !== 'undefined'
+        gtag: typeof gtag !== 'undefined',
+        readyState: document.readyState
     });
+    
+    // Force immediate initialization check
+    console.log('Q1 Shop GTM: Checking for buttons immediately...');
+    setTimeout(function() {
+        var $buttons = $('.add_to_cart_button.ajax_add_to_cart, [data-product_id]');
+        console.log('Q1 Shop GTM: Immediate check found ' + $buttons.length + ' potential buttons');
+        if ($buttons.length > 0) {
+            $buttons.each(function(i) {
+                var $btn = $(this);
+                console.log('Q1 Shop GTM: Button ' + (i+1), {
+                    productId: $btn.data('product_id') || $btn.attr('data-product_id'),
+                    classes: $btn.attr('class'),
+                    inMenu: $btn.closest('.menu-item, nav, .menu').length > 0
+                });
+            });
+        }
+    }, 500);
 
 })(jQuery);
 

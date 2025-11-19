@@ -58,7 +58,10 @@ class Q1_Shop_GTM_Tracking {
      * @return bool
      */
     private function should_enable_tracking() {
-        return function_exists('is_woocommerce') && is_woocommerce();
+        // Enable tracking if WooCommerce is active
+        // We need to check on all pages because menu items with add to cart buttons
+        // can appear on any page, not just WooCommerce pages
+        return function_exists('WC') && class_exists('WooCommerce');
     }
 
     /**
@@ -69,9 +72,16 @@ class Q1_Shop_GTM_Tracking {
             return;
         }
 
+        $script_url = plugins_url('assets/js/gtm-add-to-cart.js', $this->plugin_file);
+        
+        // Debug: log script URL (only in development)
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Q1 Shop GTM: Enqueuing script: ' . $script_url);
+        }
+
         wp_enqueue_script(
             self::SCRIPT_HANDLE,
-            plugins_url('assets/js/gtm-add-to-cart.js', $this->plugin_file),
+            $script_url,
             array('jquery'),
             self::SCRIPT_VERSION,
             true
