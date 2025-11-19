@@ -402,8 +402,11 @@
     function sendGTMViewCartEvent(cartData) {
         // Ensure we have cart data
         if (!cartData || !cartData.items || cartData.items.length === 0) {
+            console.log('Q1 Shop GTM: view_cart - No cart data available', cartData);
             return;
         }
+        
+        console.log('Q1 Shop GTM: view_cart - Sending event with cart data', cartData);
 
         // Prevent duplicate events - check if cart was already tracked
         var lastTrackedCartHash = window.sessionStorage.getItem('last_gtm_view_cart_hash');
@@ -918,22 +921,43 @@
      * Initialize cart view tracking
      */
     function initCartViewTracking() {
-        // Check if we're on the cart page
-        if (!$('body').hasClass('woocommerce-cart')) {
+        // Check if we're on the cart page - try multiple methods
+        var isCartPage = false;
+        
+        // Method 1: Check body class
+        if ($('body').hasClass('woocommerce-cart')) {
+            isCartPage = true;
+        }
+        
+        // Method 2: Check URL
+        if (!isCartPage && (window.location.pathname.indexOf('/cart') !== -1 || 
+                           window.location.href.indexOf('/cart') !== -1)) {
+            isCartPage = true;
+        }
+        
+        // Method 3: Check for cart form
+        if (!isCartPage && $('.woocommerce-cart-form, .cart.woocommerce-cart-form__contents').length > 0) {
+            isCartPage = true;
+        }
+        
+        if (!isCartPage) {
             return;
         }
 
-        // Check if cart data is available from localized script
-        if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.cart && q1ShopGTM.cart.items && q1ShopGTM.cart.items.length > 0) {
-            // Use localized cart data
-            sendGTMViewCartEvent(q1ShopGTM.cart);
-        } else {
-            // Fallback: try to get cart data from DOM
-            var cartData = getCartDataFromDOM();
-            if (cartData && cartData.items && cartData.items.length > 0) {
-                sendGTMViewCartEvent(cartData);
+        // Wait a bit for DOM to be fully ready
+        setTimeout(function() {
+            // Check if cart data is available from localized script
+            if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.cart && q1ShopGTM.cart.items && q1ShopGTM.cart.items.length > 0) {
+                // Use localized cart data
+                sendGTMViewCartEvent(q1ShopGTM.cart);
+            } else {
+                // Fallback: try to get cart data from DOM
+                var cartData = getCartDataFromDOM();
+                if (cartData && cartData.items && cartData.items.length > 0) {
+                    sendGTMViewCartEvent(cartData);
+                }
             }
-        }
+        }, 500); // Wait 500ms for DOM to be ready
     }
 
     /**
