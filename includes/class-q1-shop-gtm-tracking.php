@@ -77,15 +77,7 @@ class Q1_Shop_GTM_Tracking {
         
         // Verify file exists
         if (!file_exists($script_path)) {
-            error_log('Q1 Shop GTM: Script file not found at: ' . $script_path);
             return;
-        }
-        
-        // Debug: log script URL (only in development)
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Q1 Shop GTM: Enqueuing script: ' . $script_url);
-            error_log('Q1 Shop GTM: Script path: ' . $script_path);
-            error_log('Q1 Shop GTM: File exists: ' . (file_exists($script_path) ? 'yes' : 'no'));
         }
 
         wp_enqueue_script(
@@ -97,13 +89,6 @@ class Q1_Shop_GTM_Tracking {
         );
 
         $this->localize_script();
-        
-        // Add inline script to verify loading
-        wp_add_inline_script(
-            self::SCRIPT_HANDLE,
-            'console.log("Q1 Shop GTM: Script enqueued by WordPress");',
-            'after'
-        );
     }
 
     /**
