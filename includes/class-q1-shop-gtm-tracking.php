@@ -52,8 +52,8 @@ class Q1_Shop_GTM_Tracking {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_script'));
         
         // Force version to be included even if other plugins remove it
-        // Use priority PHP_INT_MAX + 1 to run after ASENHA's filter (PHP_INT_MAX)
-        add_filter('script_loader_src', array($this, 'force_script_version'), PHP_INT_MAX + 1, 2);
+        // Use script_loader_tag to modify the final HTML tag after all filters
+        add_filter('script_loader_tag', array($this, 'force_script_version_in_tag'), PHP_INT_MAX, 3);
     }
 
     /**
@@ -84,15 +84,11 @@ class Q1_Shop_GTM_Tracking {
             return;
         }
 
-        // Add version directly to URL to ensure it's always present
-        // This bypasses any filters that might remove version numbers
-        $script_url = add_query_arg('ver', self::SCRIPT_VERSION, $script_url);
-
         wp_enqueue_script(
             self::SCRIPT_HANDLE,
             $script_url,
             array('jquery'),
-            null, // Set to null since we already added version to URL
+            self::SCRIPT_VERSION,
             true
         );
 
@@ -197,20 +193,28 @@ class Q1_Shop_GTM_Tracking {
 
     /**
      * Force script version to be included even if other plugins remove it
+     * This modifies the final HTML tag after all script_loader_src filters
      * 
-     * @param string $src Script source URL
+     * @param string $tag The complete script tag HTML
      * @param string $handle Script handle
-     * @return string Modified script source URL
+     * @param string $src Script source URL
+     * @return string Modified script tag HTML
      */
-    public function force_script_version($src, $handle) {
+    public function force_script_version_in_tag($tag, $handle, $src) {
         // Only apply to our script
         if ($handle === self::SCRIPT_HANDLE) {
-            // Remove existing version if any
-            $src = remove_query_arg('ver', $src);
-            // Add our version
-            $src = add_query_arg('ver', self::SCRIPT_VERSION, $src);
+            // Extract current src from tag using regex
+            if (preg_match('/src=["\']([^"\']+)["\']/', $tag, $matches)) {
+                $current_src = $matches[1];
+                // Remove existing version if any
+                $current_src = remove_query_arg('ver', $current_src);
+                // Add our version
+                $new_src = add_query_arg('ver', self::SCRIPT_VERSION, $current_src);
+                // Replace src in tag
+                $tag = str_replace($current_src, $new_src, $tag);
+            }
         }
-        return $src;
+        return $tag;
     }
 }
 
