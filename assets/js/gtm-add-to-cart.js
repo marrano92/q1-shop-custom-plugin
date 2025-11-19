@@ -276,6 +276,213 @@
     }
 
     /**
+     * Get product data from wishlist button
+     */
+    function getWishlistProductData($button) {
+        var productData = {
+            id: '',
+            name: '',
+            sku: '',
+            price: '',
+            category: '',
+            variant: '',
+            quantity: 1
+        };
+
+        // Get product ID from button
+        var productId = $button.attr('data-product-id') || $button.data('product_id');
+        if (!productId) {
+            // Try to get from parent
+            var $parent = $button.closest('.commercekit-wishlist');
+            if ($parent.length) {
+                productId = $parent.attr('data-product-id') || $parent.data('product_id');
+            }
+        }
+
+        if (!productId) {
+            return productData;
+        }
+
+        productData.id = productId;
+
+        // Get product card container - try multiple selectors
+        var $productCard = $button.closest('li.product, li.type-product');
+        if (!$productCard.length) {
+            $productCard = $button.closest('.woocommerce-card, .product, .type-product, .wc-block-grid__product');
+        }
+        if (!$productCard.length) {
+            $productCard = $button.parents('.product, .type-product, .woocommerce-card').first();
+        }
+        if (!$productCard.length) {
+            // Try to find product on single product page
+            $productCard = $('.product');
+        }
+
+        // Get product name
+        var $productTitle = $productCard.find('.woocommerce-loop-product__title a, .woocommerce-LoopProduct-link');
+        if (!$productTitle.length) {
+            $productTitle = $productCard.find('h2 a, h3 a, .product-title a, a.woocommerce-LoopProduct-link');
+        }
+        if (!$productTitle.length) {
+            $productTitle = $('.product_title, .product .entry-title, h1.product_title');
+        }
+        if ($productTitle.length) {
+            productData.name = $productTitle.first().text().trim() || $productTitle.first().attr('aria-label') || '';
+        }
+
+        // Get price
+        var $price = $productCard.find('.price .woocommerce-Price-amount.amount, .price .amount');
+        if (!$price.length) {
+            $price = $productCard.find('.woocommerce-Price-amount, .price');
+        }
+        if (!$price.length) {
+            $price = $('.product .price .amount, .summary .price .amount');
+        }
+        if ($price.length) {
+            var priceText = $price.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+            productData.price = parseFloat(priceText) || '';
+        }
+
+        // Get categories
+        var $categories = $productCard.find('.product__categories a');
+        if (!$categories.length) {
+            $categories = $productCard.find('.posted_in a, .product_meta .posted_in a');
+        }
+        if (!$categories.length) {
+            $categories = $('.posted_in a, .product_meta .posted_in a');
+        }
+        if ($categories.length) {
+            var categories = [];
+            $categories.each(function() {
+                var catText = $(this).text().trim();
+                if (catText) {
+                    categories.push(catText);
+                }
+            });
+            productData.category = categories[0] || '';
+            if (categories.length > 1) {
+                productData.categories = categories;
+            }
+        }
+
+        // Get SKU
+        var $sku = $productCard.find('.sku, [itemprop="sku"]');
+        if (!$sku.length) {
+            $sku = $('.sku, [itemprop="sku"]');
+        }
+        if ($sku.length) {
+            productData.sku = $sku.text().trim();
+        }
+
+        // Use localized data if available
+        if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.product) {
+            if (!productData.name && q1ShopGTM.product.name) {
+                productData.name = q1ShopGTM.product.name;
+            }
+            if (!productData.sku && q1ShopGTM.product.sku) {
+                productData.sku = q1ShopGTM.product.sku;
+            }
+            if (!productData.price && q1ShopGTM.product.price) {
+                productData.price = q1ShopGTM.product.price;
+            }
+            if (!productData.category && q1ShopGTM.product.category) {
+                productData.category = q1ShopGTM.product.category;
+            }
+            if (!productData.id && q1ShopGTM.product.id) {
+                productData.id = q1ShopGTM.product.id;
+            }
+        }
+
+        return productData;
+    }
+
+    /**
+     * Send Enhanced Ecommerce add_to_wishlist event to GTM using gtag format
+     */
+    function sendGTMAddToWishlistEvent(productData) {
+        // Ensure we have required data
+        if (!productData.id || !productData.name) {
+            return;
+        }
+
+        // Prevent duplicate events - check if this product was already tracked
+        var lastTrackedProductId = window.sessionStorage.getItem('last_gtm_add_to_wishlist_product_id');
+        var lastTrackedTime = parseInt(window.sessionStorage.getItem('last_gtm_add_to_wishlist_time') || '0');
+        
+        // If the same product was tracked within the last 3 seconds, skip
+        if (lastTrackedProductId === String(productData.id) && (Date.now() - lastTrackedTime < 3000)) {
+            return; // Skip duplicate event
+        }
+        
+        // Store this event to prevent duplicates
+        window.sessionStorage.setItem('last_gtm_add_to_wishlist_product_id', String(productData.id));
+        window.sessionStorage.setItem('last_gtm_add_to_wishlist_time', Date.now().toString());
+
+        var currency = 'EUR';
+        if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.currency) {
+            currency = q1ShopGTM.currency;
+        }
+
+        // Calculate total value
+        var price = parseFloat(productData.price) || 0;
+        var quantity = parseInt(productData.quantity, 10) || 1;
+        var value = (price * quantity).toFixed(2);
+
+        // Build item object for gtag event
+        var item = {
+            item_id: productData.sku || String(productData.id),
+            item_name: productData.name,
+            price: parseFloat(price.toFixed(2)),
+            quantity: quantity,
+            index: 0
+        };
+
+        // Add optional fields
+        if (productData.category) {
+            item.item_category = productData.category;
+            
+            // If we have multiple categories, add them as item_category2, item_category3, etc.
+            if (productData.categories && Array.isArray(productData.categories)) {
+                productData.categories.forEach(function(cat, index) {
+                    if (index > 0) {
+                        item['item_category' + (index + 1)] = cat;
+                    }
+                });
+            }
+        }
+
+        if (productData.variant) {
+            item.item_variant = productData.variant;
+        }
+
+        if (productData.brand) {
+            item.item_brand = productData.brand;
+        }
+
+        // Build event data object
+        var eventData = {
+            currency: currency,
+            value: parseFloat(value),
+            items: [item]
+        };
+
+        // Send event using gtag if available, otherwise use dataLayer
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'add_to_wishlist', eventData);
+        } else {
+            // Fallback to dataLayer for GTM
+            window.dataLayer = window.dataLayer || [];
+            var dataLayerEvent = {
+                'event': 'add_to_wishlist',
+                'currency': currency,
+                'value': parseFloat(value),
+                'items': [item]
+            };
+            window.dataLayer.push(dataLayerEvent);
+        }
+    }
+
+    /**
      * Send Enhanced Ecommerce event to GTM using gtag format
      */
     function sendGTMAddToCartEvent(productData, $button) {
@@ -477,14 +684,98 @@
         });
     }
 
+    /**
+     * Initialize wishlist tracking
+     */
+    function initWishlistTracking() {
+        // Intercept wishlist add action by monkey-patching the fetch call
+        // We'll intercept clicks on .commercekit-save-wishlist and track after successful AJAX
+        
+        // Store original fetch function
+        var originalFetch = window.fetch;
+        
+        // Track pending wishlist actions
+        var pendingWishlistActions = {};
+        
+        // Override fetch to intercept CommerceKit wishlist AJAX calls
+        window.fetch = function() {
+            var url = arguments[0];
+            var options = arguments[1] || {};
+            
+            // Check if this is a wishlist save action
+            if (typeof url === 'string' && url.indexOf('commercekit_save_wishlist') !== -1) {
+                // Extract product_id from FormData if available
+                if (options.body instanceof FormData) {
+                    var productId = options.body.get('product_id');
+                    if (productId) {
+                        // Store timestamp for this action
+                        pendingWishlistActions[productId] = Date.now();
+                    }
+                }
+                
+                // Call original fetch
+                return originalFetch.apply(this, arguments).then(function(response) {
+                    // Clone response to read it without consuming it
+                    var clonedResponse = response.clone();
+                    
+                    // Parse JSON response
+                    clonedResponse.json().then(function(json) {
+                        // If wishlist add was successful, track the event
+                        if (json.status == 1 && json.message) {
+                            var productId = null;
+                            
+                            // Try to get product ID from stored pending actions
+                            for (var pid in pendingWishlistActions) {
+                                if (pendingWishlistActions.hasOwnProperty(pid)) {
+                                    // Check if this action was recent (within last 5 seconds)
+                                    if (Date.now() - pendingWishlistActions[pid] < 5000) {
+                                        productId = pid;
+                                        delete pendingWishlistActions[pid];
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // If we have product ID, get product data and track
+                            if (productId) {
+                                var $button = $('.commercekit-save-wishlist[data-product-id="' + productId + '"]');
+                                if (!$button.length) {
+                                    $button = $('.commercekit-wishlist[data-product-id="' + productId + '"]').find('a');
+                                }
+                                
+                                if ($button.length) {
+                                    var productData = getWishlistProductData($button);
+                                    if (productData.id && productData.name) {
+                                        sendGTMAddToWishlistEvent(productData);
+                                    }
+                                }
+                            }
+                        }
+                    }).catch(function() {
+                        // Ignore JSON parse errors
+                    });
+                    
+                    return response;
+                });
+            }
+            
+            // For all other fetch calls, use original function
+            return originalFetch.apply(this, arguments);
+        };
+    }
+
     // Initialize when DOM is ready
     $(document).ready(function() {
         initGTMTracking();
+        initWishlistTracking();
     });
 
     // Also initialize if DOM is already ready
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        setTimeout(initGTMTracking, 1);
+        setTimeout(function() {
+            initGTMTracking();
+            initWishlistTracking();
+        }, 1);
     }
 
 })(jQuery);
