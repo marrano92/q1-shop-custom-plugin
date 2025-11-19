@@ -5,15 +5,23 @@
  * using Google Tag Manager Enhanced Ecommerce format
  */
 
+// Log immediately when script file is loaded (before jQuery check)
+console.log('Q1 Shop GTM: Script file loaded and executing...');
+
 (function($) {
     'use strict';
+
+    console.log('Q1 Shop GTM: Script wrapper function executing...');
 
     // Ensure dataLayer exists
     window.dataLayer = window.dataLayer || [];
     
     // Verify jQuery is available
     if (typeof $ === 'undefined' || typeof jQuery === 'undefined') {
-        console.error('Q1 Shop GTM: jQuery is not available!');
+        console.error('Q1 Shop GTM: jQuery is not available!', {
+            $: typeof $,
+            jQuery: typeof jQuery
+        });
         return;
     }
     
@@ -589,4 +597,7 @@
     }, 500);
 
 })(jQuery);
+
+// Log after script execution
+console.log('Q1 Shop GTM: Script execution completed');
 
