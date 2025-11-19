@@ -19,13 +19,33 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
+// Load GTM Tracking class
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-gtm-tracking.php';
+
+/**
+ * Class Q1_Shop_Stripe_Alert
+ * 
+ * Handles Stripe payment alert display on checkout page
+ */
 class Q1_Shop_Stripe_Alert {
+    
+    /**
+     * Plugin version
+     */
+    const VERSION = '1.0.0';
+
+    /**
+     * Constructor
+     */
     public function __construct() {
         add_action('plugins_loaded', array($this, 'load_textdomain'));
         add_action('woocommerce_before_checkout_form', array($this, 'add_stripe_alert'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
     }
 
+    /**
+     * Load plugin textdomain
+     */
     public function load_textdomain() {
         load_plugin_textdomain(
             'q1-shop-stripe-alert',
@@ -34,6 +54,9 @@ class Q1_Shop_Stripe_Alert {
         );
     }
 
+    /**
+     * Add Stripe alert box on checkout page
+     */
     public function add_stripe_alert() {
         ?>
         <div class="stripe-payment-alert">
@@ -45,20 +68,24 @@ class Q1_Shop_Stripe_Alert {
         <?php
     }
 
+    /**
+     * Enqueue styles for checkout page
+     */
     public function enqueue_styles() {
         if (is_checkout()) {
             wp_enqueue_style(
                 'q1-shop-stripe-alert',
                 plugins_url('assets/css/style.css', __FILE__),
                 array(),
-                '1.0.0'
+                self::VERSION
             );
         }
     }
 }
 
-// Initialize the plugin
+// Initialize plugins
 new Q1_Shop_Stripe_Alert();
+new Q1_Shop_GTM_Tracking(__FILE__);
 
 add_filter('woocommerce_loop_add_to_cart_link', function($html, $product){
     if (! $product || ! $product->is_purchasable()) return $html;
