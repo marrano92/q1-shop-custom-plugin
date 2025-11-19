@@ -276,10 +276,41 @@ class Q1_Shop_GTM_Tracking {
             // Extract current src from tag using regex
             if (preg_match('/src=["\']([^"\']+)["\']/', $tag, $matches)) {
                 $current_src = $matches[1];
-                // Remove existing version if any
-                $current_src = remove_query_arg('ver', $current_src);
+                
+                // Parse URL to handle multiple query parameters correctly
+                $url_parts = parse_url($current_src);
+                $query_params = array();
+                
+                if (isset($url_parts['query'])) {
+                    parse_str($url_parts['query'], $query_params);
+                }
+                
+                // Remove all existing 'ver' parameters (handle both ?ver= and &ver=)
+                unset($query_params['ver']);
+                
+                // Rebuild query string
+                $new_query = http_build_query($query_params);
+                
+                // Rebuild URL
+                $new_src = $url_parts['scheme'] . '://' . $url_parts['host'];
+                if (isset($url_parts['port'])) {
+                    $new_src .= ':' . $url_parts['port'];
+                }
+                if (isset($url_parts['path'])) {
+                    $new_src .= $url_parts['path'];
+                }
+                
                 // Add our version
-                $new_src = add_query_arg('ver', self::SCRIPT_VERSION, $current_src);
+                if ($new_query) {
+                    $new_src .= '?' . $new_query . '&ver=' . self::SCRIPT_VERSION;
+                } else {
+                    $new_src .= '?ver=' . self::SCRIPT_VERSION;
+                }
+                
+                if (isset($url_parts['fragment'])) {
+                    $new_src .= '#' . $url_parts['fragment'];
+                }
+                
                 // Replace src in tag
                 $tag = str_replace($current_src, $new_src, $tag);
             }
