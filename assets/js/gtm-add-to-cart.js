@@ -402,11 +402,8 @@
     function sendGTMViewCartEvent(cartData) {
         // Ensure we have cart data
         if (!cartData || !cartData.items || cartData.items.length === 0) {
-            console.log('Q1 Shop GTM: view_cart - No cart data available', cartData);
             return;
         }
-        
-        console.log('Q1 Shop GTM: view_cart - Sending event with cart data', cartData);
 
         // Prevent duplicate events - check if cart was already tracked
         var lastTrackedCartHash = window.sessionStorage.getItem('last_gtm_view_cart_hash');
@@ -921,31 +918,8 @@
      * Initialize cart view tracking
      */
     function initCartViewTracking() {
-        // Check if we're on the cart page - try multiple methods
-        var isCartPage = false;
-        
-        // Method 1: Check body class
+        // Track cart page view
         if ($('body').hasClass('woocommerce-cart')) {
-            isCartPage = true;
-        }
-        
-        // Method 2: Check URL
-        if (!isCartPage && (window.location.pathname.indexOf('/cart') !== -1 || 
-                           window.location.href.indexOf('/cart') !== -1)) {
-            isCartPage = true;
-        }
-        
-        // Method 3: Check for cart form
-        if (!isCartPage && $('.woocommerce-cart-form, .cart.woocommerce-cart-form__contents').length > 0) {
-            isCartPage = true;
-        }
-        
-        if (!isCartPage) {
-            return;
-        }
-
-        // Wait a bit for DOM to be fully ready
-        setTimeout(function() {
             // Check if cart data is available from localized script
             if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.cart && q1ShopGTM.cart.items && q1ShopGTM.cart.items.length > 0) {
                 // Use localized cart data
@@ -957,7 +931,166 @@
                     sendGTMViewCartEvent(cartData);
                 }
             }
-        }, 500); // Wait 500ms for DOM to be ready
+        }
+
+        // Track mini cart drawer open (click on cart icon in header)
+        $(document).on('click', '.cart-contents, .shoptimizer-cart a', function(e) {
+            var $link = $(this);
+            
+            // Only track if this is the cart icon (not a link to cart page)
+            // Check if it's inside site-header-cart or shoptimizer-cart
+            if (!$link.closest('.site-header-cart, .shoptimizer-cart').length) {
+                return;
+            }
+
+            // Check if this will open the drawer (not navigate to cart page)
+            // The drawer opens when body gets 'drawer-open' class
+            // Wait a bit to see if drawer opens
+            setTimeout(function() {
+                if ($('body').hasClass('drawer-open')) {
+                    // Drawer is open, track view_cart event
+                    trackMiniCartView();
+                }
+            }, 100);
+        });
+
+        // Also track when drawer opens via MutationObserver (more reliable)
+        if (typeof MutationObserver !== 'undefined') {
+            var observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                        var target = mutation.target;
+                        if (target === document.body && target.classList.contains('drawer-open')) {
+                            // Drawer just opened, track view_cart
+                            trackMiniCartView();
+                        }
+                    }
+                });
+            });
+
+            observer.observe(document.body, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+        }
+    }
+
+    /**
+     * Track mini cart view (when drawer opens)
+     */
+    function trackMiniCartView() {
+        // Prevent duplicate events
+        var lastTrackedTime = parseInt(window.sessionStorage.getItem('last_gtm_mini_cart_view_time') || '0');
+        if (Date.now() - lastTrackedTime < 2000) {
+            return; // Skip if tracked within last 2 seconds
+        }
+        window.sessionStorage.setItem('last_gtm_mini_cart_view_time', Date.now().toString());
+
+        // Try to get cart data from mini cart drawer
+        var cartData = getMiniCartDataFromDOM();
+        
+        if (cartData && cartData.items && cartData.items.length > 0) {
+            sendGTMViewCartEvent(cartData);
+        } else {
+            // Fallback: try to get from localized data or use WooCommerce fragments
+            if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.cart && q1ShopGTM.cart.items && q1ShopGTM.cart.items.length > 0) {
+                sendGTMViewCartEvent(q1ShopGTM.cart);
+            } else {
+                // Try to get from regular cart DOM
+                var regularCartData = getCartDataFromDOM();
+                if (regularCartData && regularCartData.items && regularCartData.items.length > 0) {
+                    sendGTMViewCartEvent(regularCartData);
+                }
+            }
+        }
+    }
+
+    /**
+     * Get cart data from mini cart drawer DOM
+     */
+    function getMiniCartDataFromDOM() {
+        var cartData = {
+            items: [],
+            total: 0
+        };
+
+        // Get cart items from mini cart drawer
+        var $miniCart = $('#shoptimizerCartDrawer, .shoptimizer-mini-cart-wrap, .widget_shopping_cart');
+        
+        if (!$miniCart.length) {
+            return null;
+        }
+
+        $miniCart.find('.cart_list li, .woocommerce-mini-cart-item, .mini_cart_item').each(function(index) {
+            var $item = $(this);
+            var $productLink = $item.find('a');
+            var $price = $item.find('.amount, .woocommerce-Price-amount');
+            var $quantity = $item.find('.quantity, .qty');
+            
+            if ($productLink.length) {
+                var itemData = {
+                    item_id: '',
+                    item_name: $productLink.text().trim() || $productLink.attr('aria-label') || '',
+                    price: 0,
+                    quantity: 1,
+                    index: index
+                };
+
+                // Get product ID from data attributes
+                var productId = $item.data('product_id') || $item.find('[data-product_id]').data('product_id');
+                if (!productId) {
+                    // Try to extract from link href
+                    var href = $productLink.attr('href') || '';
+                    var match = href.match(/product_id=(\d+)/);
+                    if (match) {
+                        productId = match[1];
+                    }
+                }
+                if (productId) {
+                    itemData.item_id = String(productId);
+                }
+
+                // Get price
+                if ($price.length) {
+                    var priceText = $price.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+                    itemData.price = parseFloat(priceText) || 0;
+                }
+
+                // Get quantity
+                if ($quantity.length) {
+                    var qtyText = $quantity.first().val() || $quantity.first().text();
+                    itemData.quantity = parseInt(qtyText.replace(/[^\d]/g, ''), 10) || 1;
+                }
+
+                // Get category if available
+                var $category = $item.find('.product-category a');
+                if ($category.length) {
+                    itemData.item_category = $category.first().text().trim();
+                }
+
+                cartData.items.push(itemData);
+            }
+        });
+
+        // Get total from mini cart
+        var $total = $miniCart.find('.total .amount, .woocommerce-mini-cart__total .amount');
+        if (!$total.length) {
+            $total = $('.cart-contents .amount');
+        }
+        if ($total.length) {
+            var totalText = $total.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+            cartData.total = parseFloat(totalText) || 0;
+            cartData.total_float = cartData.total;
+        } else {
+            // Calculate from items
+            cartData.total_float = 0;
+            cartData.items.forEach(function(item) {
+                cartData.total_float += (item.price || 0) * (item.quantity || 1);
+            });
+            cartData.total = cartData.total_float;
+        }
+
+        return cartData.items.length > 0 ? cartData : null;
     }
 
     /**
