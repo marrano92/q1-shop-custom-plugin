@@ -1212,26 +1212,37 @@
             $form.data('submit-button', $button);
         });
 
-        // Direct click listener for remove from cart buttons (fallback)
-        // This ensures we catch the event even if WooCommerce removed_from_cart event doesn't fire
+        // Direct click listener for remove from cart buttons
+        // IMPORTANT: We intercept BEFORE WooCommerce processes the click
+        // because WooCommerce may redirect/refresh the page, preventing the event from firing
         $(document).on('click', '.product-remove a.remove, a.remove[data-product_id]', function(e) {
             var $removeLink = $(this);
             var productId = $removeLink.data('product_id') || $removeLink.attr('data-product_id');
             
             // Only track if it's a remove link with product_id
             if (productId && $removeLink.hasClass('remove')) {
-                // Store button reference
-                $removeLink.data('gtm-remove-click-time', Date.now());
+                // Check if already tracked (prevent duplicate)
+                if ($removeLink.data('gtm-removed-tracked')) {
+                    return; // Already tracked, skip
+                }
                 
-                // Wait a bit for WooCommerce to process the removal
-                // WooCommerce usually fires removed_from_cart within 200-500ms
-                setTimeout(function() {
-                    // Check if WooCommerce event already fired
-                    if (!$removeLink.data('gtm-removed-tracked')) {
-                        // Event didn't fire, track manually
-                        handleRemovedFromCart(null, $removeLink);
-                    }
-                }, 600);
+                // Get product data IMMEDIATELY before WooCommerce processes the removal
+                // This is critical because WooCommerce may redirect/refresh the page
+                var productData = getRemoveFromCartProductData($removeLink);
+                
+                // Only send event if we have required data
+                if (productData.id && productData.name) {
+                    // Mark as tracked immediately
+                    $removeLink.data('gtm-removed-tracked', true);
+                    
+                    // Send GTM event immediately (don't wait for WooCommerce)
+                    sendGTMRemoveFromCartEvent(productData);
+                }
+                
+                // Also set up a fallback listener for WooCommerce removed_from_cart event
+                // in case WooCommerce doesn't redirect and fires the event
+                // But mark as tracked so we don't send duplicate
+                $removeLink.data('gtm-remove-click-time', Date.now());
             }
         });
     }
