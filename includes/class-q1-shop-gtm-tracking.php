@@ -23,7 +23,7 @@ class Q1_Shop_GTM_Tracking {
     /**
      * Script version
      */
-    const SCRIPT_VERSION = '1.0.2';
+    const SCRIPT_VERSION = '1.0.1';
 
     /**
      * Script handle
@@ -126,6 +126,11 @@ class Q1_Shop_GTM_Tracking {
             $data['product'] = $this->get_product_data($product);
         }
 
+        // Get cart data if we're on the cart page
+        if (is_cart() && function_exists('WC') && WC()->cart && !WC()->cart->is_empty()) {
+            $data['cart'] = $this->get_cart_data();
+        }
+
         return $data;
     }
 
@@ -189,6 +194,71 @@ class Q1_Shop_GTM_Tracking {
         }
 
         return $categories[0]->name;
+    }
+
+    /**
+     * Get cart data for GTM
+     * 
+     * @return array
+     */
+    private function get_cart_data() {
+        if (!function_exists('WC') || !WC()->cart || WC()->cart->is_empty()) {
+            return array();
+        }
+
+        $cart_data = array(
+            'items' => array(),
+            'total' => WC()->cart->get_total(''),
+            'total_float' => (float) WC()->cart->get_total('')
+        );
+
+        $index = 0;
+        foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
+            $product = $cart_item['data'];
+            
+            if (!is_a($product, 'WC_Product')) {
+                continue;
+            }
+
+            $item_data = array(
+                'item_id' => $product->get_sku() ? $product->get_sku() : (string) $product->get_id(),
+                'item_name' => $product->get_name(),
+                'price' => (float) wc_get_price_to_display($product),
+                'quantity' => (int) $cart_item['quantity'],
+                'index' => $index
+            );
+
+            // Get product category
+            $categories = wp_get_post_terms($product->get_id(), 'product_cat');
+            if (!empty($categories) && !is_wp_error($categories)) {
+                $item_data['item_category'] = $categories[0]->name;
+                
+                // Add additional categories
+                if (count($categories) > 1) {
+                    foreach ($categories as $cat_index => $category) {
+                        if ($cat_index > 0) {
+                            $item_data['item_category' . ($cat_index + 1)] = $category->name;
+                        }
+                    }
+                }
+            }
+
+            // Handle variations
+            if (!empty($cart_item['variation_id'])) {
+                $variation = wc_get_product($cart_item['variation_id']);
+                if ($variation && is_a($variation, 'WC_Product_Variation')) {
+                    $variation_attributes = $variation->get_variation_attributes();
+                    if (!empty($variation_attributes)) {
+                        $item_data['item_variant'] = implode(' / ', array_values($variation_attributes));
+                    }
+                }
+            }
+
+            $cart_data['items'][] = $item_data;
+            $index++;
+        }
+
+        return $cart_data;
     }
 
     /**

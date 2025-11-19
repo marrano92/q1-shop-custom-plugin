@@ -397,6 +397,106 @@
     }
 
     /**
+     * Send Enhanced Ecommerce view_cart event to GTM using gtag format
+     */
+    function sendGTMViewCartEvent(cartData) {
+        // Ensure we have cart data
+        if (!cartData || !cartData.items || cartData.items.length === 0) {
+            return;
+        }
+
+        // Prevent duplicate events - check if cart was already tracked
+        var lastTrackedCartHash = window.sessionStorage.getItem('last_gtm_view_cart_hash');
+        var currentCartHash = JSON.stringify(cartData.items.map(function(item) {
+            return item.item_id + '_' + item.quantity;
+        }).join('|'));
+        
+        // If the same cart was tracked, skip
+        if (lastTrackedCartHash === currentCartHash) {
+            return; // Skip duplicate event
+        }
+        
+        // Store this event to prevent duplicates
+        window.sessionStorage.setItem('last_gtm_view_cart_hash', currentCartHash);
+
+        var currency = 'EUR';
+        if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.currency) {
+            currency = q1ShopGTM.currency;
+        }
+
+        // Calculate total value
+        var totalValue = 0;
+        if (cartData.total_float !== undefined) {
+            totalValue = cartData.total_float;
+        } else if (cartData.total !== undefined) {
+            // Parse total string if needed
+            var totalStr = String(cartData.total).replace(/[^\d,.-]/g, '').replace(',', '.');
+            totalValue = parseFloat(totalStr) || 0;
+        } else {
+            // Calculate from items
+            cartData.items.forEach(function(item) {
+                totalValue += (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 1);
+            });
+        }
+
+        // Build items array for gtag event
+        var items = cartData.items.map(function(item) {
+            var gtagItem = {
+                item_id: item.item_id || String(item.id || ''),
+                item_name: item.item_name || item.name || '',
+                price: parseFloat(item.price || 0).toFixed(2),
+                quantity: parseInt(item.quantity || 1, 10),
+                index: parseInt(item.index || 0, 10)
+            };
+
+            // Add optional fields
+            if (item.item_category || item.category) {
+                gtagItem.item_category = item.item_category || item.category;
+            }
+
+            // Add additional categories
+            for (var i = 2; i <= 5; i++) {
+                var catKey = 'item_category' + i;
+                if (item[catKey]) {
+                    gtagItem[catKey] = item[catKey];
+                }
+            }
+
+            if (item.item_variant || item.variant) {
+                gtagItem.item_variant = item.item_variant || item.variant;
+            }
+
+            if (item.item_brand || item.brand) {
+                gtagItem.item_brand = item.item_brand || item.brand;
+            }
+
+            return gtagItem;
+        });
+
+        // Build event data object
+        var eventData = {
+            currency: currency,
+            value: parseFloat(totalValue.toFixed(2)),
+            items: items
+        };
+
+        // Send event using gtag if available, otherwise use dataLayer
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'view_cart', eventData);
+        } else {
+            // Fallback to dataLayer for GTM
+            window.dataLayer = window.dataLayer || [];
+            var dataLayerEvent = {
+                'event': 'view_cart',
+                'currency': currency,
+                'value': parseFloat(totalValue.toFixed(2)),
+                'items': items
+            };
+            window.dataLayer.push(dataLayerEvent);
+        }
+    }
+
+    /**
      * Send Enhanced Ecommerce add_to_wishlist event to GTM using gtag format
      */
     function sendGTMAddToWishlistEvent(productData) {
@@ -814,10 +914,96 @@
         }
     }
 
+    /**
+     * Initialize cart view tracking
+     */
+    function initCartViewTracking() {
+        // Check if we're on the cart page
+        if (!$('body').hasClass('woocommerce-cart')) {
+            return;
+        }
+
+        // Check if cart data is available from localized script
+        if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.cart && q1ShopGTM.cart.items && q1ShopGTM.cart.items.length > 0) {
+            // Use localized cart data
+            sendGTMViewCartEvent(q1ShopGTM.cart);
+        } else {
+            // Fallback: try to get cart data from DOM
+            var cartData = getCartDataFromDOM();
+            if (cartData && cartData.items && cartData.items.length > 0) {
+                sendGTMViewCartEvent(cartData);
+            }
+        }
+    }
+
+    /**
+     * Get cart data from DOM (fallback method)
+     */
+    function getCartDataFromDOM() {
+        var cartData = {
+            items: [],
+            total: 0
+        };
+
+        // Get cart items from DOM
+        $('.woocommerce-cart-form .cart_item, .woocommerce-cart .cart_item').each(function(index) {
+            var $item = $(this);
+            var $productLink = $item.find('.product-name a, .product-title a');
+            var $price = $item.find('.product-price .amount, .product-subtotal .amount');
+            var $quantity = $item.find('.product-quantity input.qty, .quantity input.qty');
+            
+            if ($productLink.length) {
+                var itemData = {
+                    item_id: '',
+                    item_name: $productLink.text().trim() || $productLink.attr('aria-label') || '',
+                    price: 0,
+                    quantity: 1,
+                    index: index
+                };
+
+                // Get product ID from data attributes or link
+                var productId = $item.data('product_id') || $item.find('[data-product_id]').data('product_id');
+                if (productId) {
+                    itemData.item_id = String(productId);
+                }
+
+                // Get price
+                if ($price.length) {
+                    var priceText = $price.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+                    itemData.price = parseFloat(priceText) || 0;
+                }
+
+                // Get quantity
+                if ($quantity.length) {
+                    itemData.quantity = parseInt($quantity.val() || $quantity.text(), 10) || 1;
+                }
+
+                // Get category if available
+                var $category = $item.find('.product-category a, .posted_in a');
+                if ($category.length) {
+                    itemData.item_category = $category.first().text().trim();
+                }
+
+                cartData.items.push(itemData);
+            }
+        });
+
+        // Get total
+        var $total = $('.cart_totals .order-total .amount, .woocommerce-cart-form .cart-subtotal .amount');
+        if ($total.length) {
+            var totalText = $total.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+            cartData.total = parseFloat(totalText) || 0;
+            cartData.total_float = cartData.total;
+        }
+
+        return cartData;
+    }
+
     // Initialize when DOM is ready
     $(document).ready(function() {
         initGTMTracking();
         initWishlistTracking();
+        initCartViewTracking();
     });
 
     // Also initialize if DOM is already ready
@@ -825,6 +1011,7 @@
         setTimeout(function() {
             initGTMTracking();
             initWishlistTracking();
+            initCartViewTracking();
         }, 1);
     }
 
