@@ -329,40 +329,49 @@
         };
 
         // Send event using gtag if available, otherwise use dataLayer
+        console.log('Q1 Shop GTM: Preparing to send event', eventData);
+        
         if (typeof gtag !== 'undefined') {
+            console.log('Q1 Shop GTM: Using gtag to send event');
             gtag('event', 'add_to_cart', eventData);
         } else {
             // Fallback to dataLayer for GTM
+            console.log('Q1 Shop GTM: gtag not available, using dataLayer');
             window.dataLayer = window.dataLayer || [];
-            window.dataLayer.push({
+            var dataLayerEvent = {
                 'event': 'add_to_cart',
                 'currency': currency,
                 'value': parseFloat(value),
                 'items': [item]
-            });
+            };
+            console.log('Q1 Shop GTM: Pushing to dataLayer', dataLayerEvent);
+            window.dataLayer.push(dataLayerEvent);
         }
 
-        // Debug log (remove in production if needed)
-        if (window.console && console.log) {
-            console.log('Q1 Shop GTM: add_to_cart event sent', {
-                event: 'add_to_cart',
-                item: item,
-                value: value,
-                currency: currency
-            });
-        }
+        // Debug log
+        console.log('Q1 Shop GTM: add_to_cart event sent successfully', {
+            event: 'add_to_cart',
+            item: item,
+            value: value,
+            currency: currency,
+            hasGtag: typeof gtag !== 'undefined',
+            hasDataLayer: typeof window.dataLayer !== 'undefined'
+        });
     }
 
     /**
      * Handle added_to_cart event from WooCommerce
      */
     function handleAddedToCart(event, fragments, cartHash, $button) {
+        console.log('Q1 Shop GTM: handleAddedToCart called', { event, fragments, cartHash, button: $button });
+        
         // Get the button that triggered the event
         // WooCommerce passes the button as third parameter
         var $triggerButton = $button;
         
         // If button not provided, try to find it
         if (!$triggerButton || $triggerButton.length === 0) {
+            console.log('Q1 Shop GTM: Button not provided, searching...');
             // Look for buttons with loading class (just clicked)
             $triggerButton = $('.add_to_cart_button.loading, .single_add_to_cart_button.loading');
             
@@ -377,6 +386,8 @@
             }
         }
 
+        console.log('Q1 Shop GTM: Using button for tracking', $triggerButton);
+
         // Remove loading class if present
         if ($triggerButton && $triggerButton.length) {
             $triggerButton.removeClass('loading');
@@ -386,10 +397,13 @@
 
         // Get product data
         var productData = getProductData($triggerButton);
+        
+        console.log('Q1 Shop GTM: Product data retrieved', productData);
 
         // Only send event if we have required data
         if (productData.id && productData.name) {
             // Send GTM event
+            console.log('Q1 Shop GTM: Sending event to GTM', productData);
             sendGTMAddToCartEvent(productData);
         } else {
             console.warn('Q1 Shop GTM: Could not retrieve product data for tracking', {
@@ -403,8 +417,11 @@
      * Initialize tracking
      */
     function initGTMTracking() {
+        console.log('Q1 Shop GTM: Initializing tracking...');
+        
         // Listen for WooCommerce added_to_cart event
         $(document.body).on('added_to_cart', function(event, fragments, cartHash, $button) {
+            console.log('Q1 Shop GTM: added_to_cart event received', { fragments, cartHash, button: $button });
             handleAddedToCart(event, fragments, cartHash, $button);
         });
 
@@ -428,20 +445,42 @@
             var $button = $(this);
             var productId = $button.data('product_id') || $button.attr('data-product_id');
             
+            console.log('Q1 Shop GTM: Button clicked', { 
+                button: $button, 
+                productId: productId,
+                hasAjaxClass: $button.hasClass('ajax_add_to_cart')
+            });
+            
             // Only track if it's an AJAX button with product_id
             if (productId && $button.hasClass('ajax_add_to_cart')) {
                 // Store button reference and mark as not yet tracked
                 $button.data('gtm-tracked', false);
                 $button.data('gtm-click-time', Date.now());
                 
-                // Set a timeout to track if the event doesn't fire within 800ms
-                // WooCommerce usually fires added_to_cart within 200-500ms
+                console.log('Q1 Shop GTM: Setting up tracking for button', $button);
+                
+                // Track immediately as primary method, then verify if event fires
+                var trackedImmediately = false;
+                
+                // Try to track immediately
                 setTimeout(function() {
                     if (!$button.data('gtm-tracked')) {
+                        console.log('Q1 Shop GTM: Tracking immediately (before WooCommerce event)', $button);
+                        handleAddedToCart(null, null, null, $button);
+                        trackedImmediately = true;
+                    }
+                }, 100);
+                
+                // Set a timeout to verify if the event fires
+                // WooCommerce usually fires added_to_cart within 200-500ms
+                setTimeout(function() {
+                    if (!$button.data('gtm-tracked') && !trackedImmediately) {
                         // Event didn't fire, track manually
                         console.log('Q1 Shop GTM: Tracking manually - added_to_cart event did not fire', $button);
                         handleAddedToCart(null, null, null, $button);
                         $button.data('gtm-tracked', true);
+                    } else if ($button.data('gtm-tracked')) {
+                        console.log('Q1 Shop GTM: Already tracked via WooCommerce event');
                     }
                 }, 800);
             }
@@ -459,13 +498,22 @@
 
     // Initialize when DOM is ready
     $(document).ready(function() {
+        console.log('Q1 Shop GTM: DOM ready, initializing...');
         initGTMTracking();
     });
 
     // Also initialize if DOM is already ready
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        console.log('Q1 Shop GTM: DOM already ready, initializing immediately...');
         setTimeout(initGTMTracking, 1);
     }
+
+    // Log script load
+    console.log('Q1 Shop GTM: Script loaded', {
+        jQuery: typeof jQuery !== 'undefined',
+        dataLayer: typeof window.dataLayer !== 'undefined',
+        gtag: typeof gtag !== 'undefined'
+    });
 
 })(jQuery);
 
