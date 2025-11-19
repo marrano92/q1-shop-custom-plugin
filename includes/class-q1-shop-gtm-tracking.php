@@ -50,6 +50,10 @@ class Q1_Shop_GTM_Tracking {
     public function __construct($plugin_file) {
         $this->plugin_file = $plugin_file;
         add_action('wp_enqueue_scripts', array($this, 'enqueue_script'));
+        
+        // Force version to be included even if other plugins remove it
+        // Use priority PHP_INT_MAX + 1 to run after ASENHA's filter (PHP_INT_MAX)
+        add_filter('script_loader_src', array($this, 'force_script_version'), PHP_INT_MAX + 1, 2);
     }
 
     /**
@@ -185,6 +189,24 @@ class Q1_Shop_GTM_Tracking {
         }
 
         return $categories[0]->name;
+    }
+
+    /**
+     * Force script version to be included even if other plugins remove it
+     * 
+     * @param string $src Script source URL
+     * @param string $handle Script handle
+     * @return string Modified script source URL
+     */
+    public function force_script_version($src, $handle) {
+        // Only apply to our script
+        if ($handle === self::SCRIPT_HANDLE) {
+            // Remove existing version if any
+            $src = remove_query_arg('ver', $src);
+            // Add our version
+            $src = add_query_arg('ver', self::SCRIPT_VERSION, $src);
+        }
+        return $src;
     }
 }
 
