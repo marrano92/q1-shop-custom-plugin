@@ -397,6 +397,117 @@
     }
 
     /**
+     * Send Enhanced Ecommerce begin_checkout event to GTM using gtag format
+     */
+    function sendGTMBeginCheckoutEvent(checkoutData) {
+        // Ensure we have checkout data
+        if (!checkoutData || !checkoutData.items || checkoutData.items.length === 0) {
+            return;
+        }
+
+        // Prevent duplicate events - check if checkout was already tracked
+        var lastTrackedTime = parseInt(window.sessionStorage.getItem('last_gtm_begin_checkout_time') || '0');
+        if (Date.now() - lastTrackedTime < 5000) {
+            return; // Skip if tracked within last 5 seconds
+        }
+        window.sessionStorage.setItem('last_gtm_begin_checkout_time', Date.now().toString());
+
+        var currency = 'EUR';
+        if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.currency) {
+            currency = q1ShopGTM.currency;
+        }
+
+        // Calculate total value
+        var totalValue = 0;
+        if (checkoutData.total_float !== undefined) {
+            totalValue = checkoutData.total_float;
+        } else if (checkoutData.total !== undefined) {
+            // Parse total string if needed
+            var totalStr = String(checkoutData.total).replace(/[^\d,.-]/g, '').replace(',', '.');
+            totalValue = parseFloat(totalStr) || 0;
+        } else {
+            // Calculate from items
+            checkoutData.items.forEach(function(item) {
+                totalValue += (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 1);
+            });
+        }
+
+        // Build items array for gtag event
+        var items = checkoutData.items.map(function(item) {
+            var gtagItem = {
+                item_id: item.item_id || String(item.id || ''),
+                item_name: item.item_name || item.name || '',
+                price: parseFloat(item.price || 0).toFixed(2),
+                quantity: parseInt(item.quantity || 1, 10),
+                index: parseInt(item.index || 0, 10)
+            };
+
+            // Add optional fields
+            if (item.item_category || item.category) {
+                gtagItem.item_category = item.item_category || item.category;
+            }
+
+            // Add additional categories
+            for (var i = 2; i <= 5; i++) {
+                var catKey = 'item_category' + i;
+                if (item[catKey]) {
+                    gtagItem[catKey] = item[catKey];
+                }
+            }
+
+            if (item.item_variant || item.variant) {
+                gtagItem.item_variant = item.item_variant || item.variant;
+            }
+
+            if (item.item_brand || item.brand) {
+                gtagItem.item_brand = item.item_brand || item.brand;
+            }
+
+            // Add coupon to item if available
+            if (item.coupon || checkoutData.coupon) {
+                gtagItem.coupon = item.coupon || checkoutData.coupon;
+            }
+
+            // Add discount if available
+            if (item.discount !== undefined) {
+                gtagItem.discount = parseFloat(item.discount).toFixed(2);
+            }
+
+            return gtagItem;
+        });
+
+        // Build event data object
+        var eventData = {
+            currency: currency,
+            value: parseFloat(totalValue.toFixed(2)),
+            items: items
+        };
+
+        // Add coupon at event level if available
+        if (checkoutData.coupon) {
+            eventData.coupon = checkoutData.coupon;
+        }
+
+        // Send event using gtag if available, otherwise use dataLayer
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'begin_checkout', eventData);
+        } else {
+            // Fallback to dataLayer for GTM
+            window.dataLayer = window.dataLayer || [];
+            var dataLayerEvent = {
+                'event': 'begin_checkout',
+                'currency': currency,
+                'value': parseFloat(totalValue.toFixed(2)),
+                'items': items
+            };
+            if (checkoutData.coupon) {
+                dataLayerEvent.coupon = checkoutData.coupon;
+            }
+            window.dataLayer.push(dataLayerEvent);
+        }
+    }
+
+    /**
      * Send Enhanced Ecommerce view_cart event to GTM using gtag format
      */
     function sendGTMViewCartEvent(cartData) {
@@ -1266,11 +1377,98 @@
         return cartData;
     }
 
+    /**
+     * Initialize checkout tracking
+     */
+    function initCheckoutTracking() {
+        // Track checkout page view
+        if ($('body').hasClass('woocommerce-checkout')) {
+            // Check if checkout data is available from localized script
+            if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.checkout && q1ShopGTM.checkout.items && q1ShopGTM.checkout.items.length > 0) {
+                // Use localized checkout data
+                sendGTMBeginCheckoutEvent(q1ShopGTM.checkout);
+            } else {
+                // Fallback: try to get cart data and convert to checkout format
+                var cartData = getCartDataFromDOM();
+                if (cartData && cartData.items && cartData.items.length > 0) {
+                    // Convert cart data to checkout format
+                    var checkoutData = {
+                        items: cartData.items,
+                        total: cartData.total,
+                        total_float: cartData.total_float,
+                        coupon: ''
+                    };
+                    sendGTMBeginCheckoutEvent(checkoutData);
+                }
+            }
+        }
+
+        // Track click on "Pagamento" button in mini cart drawer
+        $(document).on('click', '.woocommerce-mini-cart__buttons .checkout, .woocommerce-mini-cart__buttons a.checkout, a.button.checkout.wc-forward', function(e) {
+            var $button = $(this);
+            
+            // Only track if this is the checkout button from mini cart
+            if (!$button.closest('.woocommerce-mini-cart__buttons, .widget_shopping_cart').length) {
+                return;
+            }
+
+            // Prevent default navigation temporarily to track event
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Get checkout data
+            var checkoutData = null;
+            
+            // Try to get from mini cart
+            var miniCartData = getMiniCartDataFromDOM();
+            if (miniCartData && miniCartData.items && miniCartData.items.length > 0) {
+                checkoutData = {
+                    items: miniCartData.items,
+                    total: miniCartData.total,
+                    total_float: miniCartData.total_float,
+                    coupon: ''
+                };
+            } else if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.checkout) {
+                checkoutData = q1ShopGTM.checkout;
+            } else if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.cart) {
+                checkoutData = {
+                    items: q1ShopGTM.cart.items,
+                    total: q1ShopGTM.cart.total,
+                    total_float: q1ShopGTM.cart.total_float,
+                    coupon: ''
+                };
+            } else {
+                // Fallback: get from regular cart DOM
+                var cartData = getCartDataFromDOM();
+                if (cartData && cartData.items && cartData.items.length > 0) {
+                    checkoutData = {
+                        items: cartData.items,
+                        total: cartData.total,
+                        total_float: cartData.total_float,
+                        coupon: ''
+                    };
+                }
+            }
+
+            // Send event if we have data
+            if (checkoutData && checkoutData.items && checkoutData.items.length > 0) {
+                sendGTMBeginCheckoutEvent(checkoutData);
+            }
+
+            // Navigate to checkout after a short delay
+            var checkoutUrl = $button.attr('href') || '/checkout/';
+            setTimeout(function() {
+                window.location.href = checkoutUrl;
+            }, 100);
+        });
+    }
+
     // Initialize when DOM is ready
     $(document).ready(function() {
         initGTMTracking();
         initWishlistTracking();
         initCartViewTracking();
+        initCheckoutTracking();
     });
 
     // Also initialize if DOM is already ready
@@ -1279,6 +1477,7 @@
             initGTMTracking();
             initWishlistTracking();
             initCartViewTracking();
+            initCheckoutTracking();
         }, 1);
     }
 
