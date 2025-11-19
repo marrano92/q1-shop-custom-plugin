@@ -688,80 +688,130 @@
      * Initialize wishlist tracking
      */
     function initWishlistTracking() {
-        // Intercept wishlist add action by monkey-patching the fetch call
-        // We'll intercept clicks on .commercekit-save-wishlist and track after successful AJAX
+        // Track clicks on wishlist buttons and monitor DOM changes
+        // CommerceKit updates the DOM when wishlist is successfully added
         
-        // Store original fetch function
-        var originalFetch = window.fetch;
-        
-        // Track pending wishlist actions
-        var pendingWishlistActions = {};
-        
-        // Override fetch to intercept CommerceKit wishlist AJAX calls
-        window.fetch = function() {
-            var url = arguments[0];
-            var options = arguments[1] || {};
+        // Listen for clicks on wishlist save buttons
+        $(document).on('click', '.commercekit-save-wishlist', function(e) {
+            var $button = $(this);
+            var productId = $button.attr('data-product-id') || $button.data('product_id');
             
-            // Check if this is a wishlist save action
-            if (typeof url === 'string' && url.indexOf('commercekit_save_wishlist') !== -1) {
-                // Extract product_id from FormData if available
-                if (options.body instanceof FormData) {
-                    var productId = options.body.get('product_id');
-                    if (productId) {
-                        // Store timestamp for this action
-                        pendingWishlistActions[productId] = Date.now();
-                    }
-                }
-                
-                // Call original fetch
-                return originalFetch.apply(this, arguments).then(function(response) {
-                    // Clone response to read it without consuming it
-                    var clonedResponse = response.clone();
-                    
-                    // Parse JSON response
-                    clonedResponse.json().then(function(json) {
-                        // If wishlist add was successful, track the event
-                        if (json.status == 1 && json.message) {
-                            var productId = null;
-                            
-                            // Try to get product ID from stored pending actions
-                            for (var pid in pendingWishlistActions) {
-                                if (pendingWishlistActions.hasOwnProperty(pid)) {
-                                    // Check if this action was recent (within last 5 seconds)
-                                    if (Date.now() - pendingWishlistActions[pid] < 5000) {
-                                        productId = pid;
-                                        delete pendingWishlistActions[pid];
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            // If we have product ID, get product data and track
-                            if (productId) {
-                                var $button = $('.commercekit-save-wishlist[data-product-id="' + productId + '"]');
-                                if (!$button.length) {
-                                    $button = $('.commercekit-wishlist[data-product-id="' + productId + '"]').find('a');
-                                }
-                                
-                                if ($button.length) {
-                                    var productData = getWishlistProductData($button);
-                                    if (productData.id && productData.name) {
-                                        sendGTMAddToWishlistEvent(productData);
-                                    }
-                                }
-                            }
-                        }
-                    }).catch(function() {
-                        // Ignore JSON parse errors
-                    });
-                    
-                    return response;
-                });
+            if (!productId) {
+                return;
             }
             
-            // For all other fetch calls, use original function
-            return originalFetch.apply(this, arguments);
-        };
+            // Mark button as clicked to prevent duplicate tracking
+            if ($button.data('gtm-wishlist-tracked')) {
+                return;
+            }
+            
+            // Store initial button HTML to detect changes
+            var initialHtml = $button.closest('.commercekit-wishlist').html();
+            var $wishlistContainer = $button.closest('.commercekit-wishlist');
+            
+            // Get product data immediately (before DOM changes)
+            var productData = getWishlistProductData($button);
+            
+            // Wait for DOM update (CommerceKit updates the container HTML on success)
+            // Check multiple times to catch the update
+            var checkCount = 0;
+            var maxChecks = 20; // Check for up to 2 seconds (20 * 100ms)
+            
+            var checkInterval = setInterval(function() {
+                checkCount++;
+                
+                // Check if DOM has been updated (wishlist was added)
+                var currentHtml = $wishlistContainer.html();
+                if (currentHtml !== initialHtml) {
+                    // DOM was updated, wishlist add was successful
+                    clearInterval(checkInterval);
+                    
+                    // Mark as tracked to prevent duplicates
+                    $button.data('gtm-wishlist-tracked', true);
+                    
+                    // Send GTM event
+                    if (productData.id && productData.name) {
+                        sendGTMAddToWishlistEvent(productData);
+                    }
+                    
+                    // Reset tracking flag after a delay to allow future clicks
+                    setTimeout(function() {
+                        $button.data('gtm-wishlist-tracked', false);
+                    }, 3000);
+                } else if (checkCount >= maxChecks) {
+                    // Timeout - stop checking
+                    clearInterval(checkInterval);
+                    $button.data('gtm-wishlist-tracked', false);
+                }
+            }, 100); // Check every 100ms
+        });
+        
+        // Alternative approach: Intercept fetch calls for wishlist
+        // This is a backup in case the DOM monitoring doesn't work
+        if (typeof window.fetch !== 'undefined') {
+            var originalFetch = window.fetch;
+            var wishlistClickData = null;
+            
+            // Store click data when wishlist button is clicked
+            $(document).on('click', '.commercekit-save-wishlist', function(e) {
+                var $button = $(this);
+                var productId = $button.attr('data-product-id') || $button.data('product_id');
+                if (productId) {
+                    wishlistClickData = {
+                        productId: productId,
+                        button: $button,
+                        timestamp: Date.now()
+                    };
+                }
+            });
+            
+            // Intercept fetch calls
+            window.fetch = function() {
+                var url = arguments[0];
+                var options = arguments[1] || {};
+                
+                // Check if this is a wishlist save action
+                if (typeof url === 'string' && url.indexOf('commercekit_save_wishlist') !== -1) {
+                    // Call original fetch
+                    return originalFetch.apply(this, arguments).then(function(response) {
+                        // Clone response to read it
+                        var clonedResponse = response.clone();
+                        
+                        // Parse JSON response
+                        clonedResponse.json().then(function(json) {
+                            // If wishlist add was successful and we have click data
+                            if (json.status == 1 && wishlistClickData && 
+                                (Date.now() - wishlistClickData.timestamp < 5000)) {
+                                
+                                var $button = wishlistClickData.button;
+                                var productData = getWishlistProductData($button);
+                                
+                                if (productData.id && productData.name) {
+                                    // Check if already tracked via DOM monitoring
+                                    if (!$button.data('gtm-wishlist-tracked')) {
+                                        sendGTMAddToWishlistEvent(productData);
+                                        $button.data('gtm-wishlist-tracked', true);
+                                        setTimeout(function() {
+                                            $button.data('gtm-wishlist-tracked', false);
+                                        }, 3000);
+                                    }
+                                }
+                                
+                                // Clear click data
+                                wishlistClickData = null;
+                            }
+                        }).catch(function() {
+                            // Ignore JSON parse errors
+                        });
+                        
+                        return response;
+                    });
+                }
+                
+                // For all other fetch calls, use original function
+                return originalFetch.apply(this, arguments);
+            };
+        }
     }
 
     // Initialize when DOM is ready

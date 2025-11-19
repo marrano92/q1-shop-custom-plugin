@@ -23,7 +23,7 @@ class Q1_Shop_GTM_Tracking {
     /**
      * Script version
      */
-    const SCRIPT_VERSION = '1.0.1';
+    const SCRIPT_VERSION = '1.0.2';
 
     /**
      * Script handle
