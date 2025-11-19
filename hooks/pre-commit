@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Git pre-commit hook to auto-increment JavaScript version
+# This hook increments the SCRIPT_VERSION constant in class-q1-shop-gtm-tracking.php
+# when JavaScript files are being committed
+
+# Get the list of files being committed
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+# Check if JavaScript file is being committed
+JS_FILE_CHANGED=false
+for file in $STAGED_FILES; do
+    if [[ "$file" == *"assets/js/gtm-add-to-cart.js"* ]]; then
+        JS_FILE_CHANGED=true
+        break
+    fi
+done
+
+# If JavaScript file changed, increment version
+if [ "$JS_FILE_CHANGED" = true ]; then
+    VERSION_FILE="includes/class-q1-shop-gtm-tracking.php"
+    
+    if [ -f "$VERSION_FILE" ]; then
+        # Get current version using sed (compatible with both macOS and Linux)
+        CURRENT_VERSION=$(grep "const SCRIPT_VERSION" "$VERSION_FILE" | sed -E "s/.*const SCRIPT_VERSION = '([^']+)'.*/\1/")
+        
+        if [ -n "$CURRENT_VERSION" ]; then
+            # Parse version (e.g., "1.0.0")
+            IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+            MAJOR=${VERSION_PARTS[0]}
+            MINOR=${VERSION_PARTS[1]}
+            PATCH=${VERSION_PARTS[2]}
+            
+            # Increment patch version
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+            
+            # Update version in file
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                # macOS
+                sed -i '' "s/const SCRIPT_VERSION = '[^']*'/const SCRIPT_VERSION = '$NEW_VERSION'/" "$VERSION_FILE"
+            else
+                # Linux
+                sed -i "s/const SCRIPT_VERSION = '[^']*'/const SCRIPT_VERSION = '$NEW_VERSION'/" "$VERSION_FILE"
+            fi
+            
+            # Add the modified version file to the commit
+            git add "$VERSION_FILE"
+            
+            echo "✓ Auto-incremented SCRIPT_VERSION from $CURRENT_VERSION to $NEW_VERSION"
+        fi
+    fi
+fi
+
+exit 0
+
