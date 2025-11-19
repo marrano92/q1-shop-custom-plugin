@@ -397,6 +397,133 @@
     }
 
     /**
+     * Send Enhanced Ecommerce purchase event to GTM using gtag format
+     */
+    function sendGTMPurchaseEvent(orderData) {
+        // Ensure we have order data
+        if (!orderData || !orderData.items || orderData.items.length === 0) {
+            return;
+        }
+
+        // Prevent duplicate events - check if this order was already tracked
+        var transactionId = orderData.transaction_id || '';
+        if (!transactionId) {
+            return; // Need transaction ID
+        }
+
+        var lastTrackedTransaction = window.sessionStorage.getItem('last_gtm_purchase_transaction_id');
+        if (lastTrackedTransaction === transactionId) {
+            return; // Skip if this order was already tracked
+        }
+        window.sessionStorage.setItem('last_gtm_purchase_transaction_id', transactionId);
+
+        var currency = 'EUR';
+        if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.currency) {
+            currency = q1ShopGTM.currency;
+        }
+
+        // Build items array for gtag event
+        var items = orderData.items.map(function(item) {
+            var gtagItem = {
+                item_id: item.item_id || String(item.id || ''),
+                item_name: item.item_name || item.name || '',
+                price: parseFloat(item.price || 0).toFixed(2),
+                quantity: parseInt(item.quantity || 1, 10),
+                index: parseInt(item.index || 0, 10)
+            };
+
+            // Add optional fields
+            if (item.item_category || item.category) {
+                gtagItem.item_category = item.item_category || item.category;
+            }
+
+            // Add additional categories
+            for (var i = 2; i <= 5; i++) {
+                var catKey = 'item_category' + i;
+                if (item[catKey]) {
+                    gtagItem[catKey] = item[catKey];
+                }
+            }
+
+            if (item.item_variant || item.variant) {
+                gtagItem.item_variant = item.item_variant || item.variant;
+            }
+
+            if (item.item_brand || item.brand) {
+                gtagItem.item_brand = item.item_brand || item.brand;
+            }
+
+            // Add coupon to item if available
+            if (item.coupon || orderData.coupon) {
+                gtagItem.coupon = item.coupon || orderData.coupon;
+            }
+
+            // Add discount if available
+            if (item.discount !== undefined) {
+                gtagItem.discount = parseFloat(item.discount).toFixed(2);
+            }
+
+            return gtagItem;
+        });
+
+        // Build event data object
+        var eventData = {
+            transaction_id: transactionId,
+            currency: currency,
+            value: parseFloat(orderData.value || 0).toFixed(2),
+            items: items
+        };
+
+        // Add tax if available
+        if (orderData.tax !== undefined) {
+            eventData.tax = parseFloat(orderData.tax).toFixed(2);
+        }
+
+        // Add shipping if available
+        if (orderData.shipping !== undefined) {
+            eventData.shipping = parseFloat(orderData.shipping).toFixed(2);
+        }
+
+        // Add coupon at event level if available
+        if (orderData.coupon) {
+            eventData.coupon = orderData.coupon;
+        }
+
+        // Add customer type if available
+        if (orderData.customer_type) {
+            eventData.customer_type = orderData.customer_type;
+        }
+
+        // Send event using gtag if available, otherwise use dataLayer
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'purchase', eventData);
+        } else {
+            // Fallback to dataLayer for GTM
+            window.dataLayer = window.dataLayer || [];
+            var dataLayerEvent = {
+                'event': 'purchase',
+                'transaction_id': transactionId,
+                'currency': currency,
+                'value': parseFloat(orderData.value || 0).toFixed(2),
+                'items': items
+            };
+            if (orderData.tax !== undefined) {
+                dataLayerEvent.tax = parseFloat(orderData.tax).toFixed(2);
+            }
+            if (orderData.shipping !== undefined) {
+                dataLayerEvent.shipping = parseFloat(orderData.shipping).toFixed(2);
+            }
+            if (orderData.coupon) {
+                dataLayerEvent.coupon = orderData.coupon;
+            }
+            if (orderData.customer_type) {
+                dataLayerEvent.customer_type = orderData.customer_type;
+            }
+            window.dataLayer.push(dataLayerEvent);
+        }
+    }
+
+    /**
      * Send Enhanced Ecommerce begin_checkout event to GTM using gtag format
      */
     function sendGTMBeginCheckoutEvent(checkoutData) {
@@ -1463,12 +1590,121 @@
         });
     }
 
+    /**
+     * Initialize purchase tracking
+     */
+    function initPurchaseTracking() {
+        // Track purchase on order received page
+        if ($('body').hasClass('woocommerce-order-received') || window.location.href.indexOf('order-received') !== -1) {
+            // Check if order data is available from localized script
+            if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.order && q1ShopGTM.order.items && q1ShopGTM.order.items.length > 0) {
+                // Use localized order data
+                sendGTMPurchaseEvent(q1ShopGTM.order);
+            } else {
+                // Fallback: try to get order data from DOM
+                var orderData = getOrderDataFromDOM();
+                if (orderData && orderData.items && orderData.items.length > 0) {
+                    sendGTMPurchaseEvent(orderData);
+                }
+            }
+        }
+    }
+
+    /**
+     * Get order data from DOM (fallback method)
+     */
+    function getOrderDataFromDOM() {
+        var orderData = {
+            transaction_id: '',
+            items: [],
+            value: 0,
+            tax: 0,
+            shipping: 0,
+            coupon: '',
+            customer_type: ''
+        };
+
+        // Get transaction ID from order number
+        var $orderNumber = $('.woocommerce-order-overview__order strong, .order-number, .order_details .order strong');
+        if ($orderNumber.length) {
+            var orderText = $orderNumber.first().text().trim();
+            // Extract numbers from order text
+            var match = orderText.match(/(\d+)/);
+            if (match) {
+                orderData.transaction_id = match[1];
+            }
+        }
+
+        // Get order items from order details table
+        $('.woocommerce-table--order-details tbody tr, .order_details tbody tr').each(function(index) {
+            var $row = $(this);
+            var $productLink = $row.find('.product-name a, .product a');
+            var $price = $row.find('.product-total .amount, .amount');
+            var $quantity = $row.find('.product-quantity, .quantity');
+            
+            if ($productLink.length) {
+                var itemData = {
+                    item_id: '',
+                    item_name: $productLink.text().trim() || $productLink.attr('aria-label') || '',
+                    price: 0,
+                    quantity: 1,
+                    index: index
+                };
+
+                // Get product ID from link
+                var href = $productLink.attr('href') || '';
+                var match = href.match(/product[\/\-](\d+)/) || href.match(/p=(\d+)/);
+                if (match) {
+                    itemData.item_id = match[1];
+                }
+
+                // Get price
+                if ($price.length) {
+                    var priceText = $price.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+                    itemData.price = parseFloat(priceText) || 0;
+                }
+
+                // Get quantity
+                if ($quantity.length) {
+                    var qtyText = $quantity.first().text().replace(/[^\d]/g, '');
+                    itemData.quantity = parseInt(qtyText, 10) || 1;
+                }
+
+                orderData.items.push(itemData);
+            }
+        });
+
+        // Get total
+        var $total = $('.woocommerce-order-overview__total strong, .order-total .amount');
+        if ($total.length) {
+            var totalText = $total.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+            orderData.value = parseFloat(totalText) || 0;
+        }
+
+        // Get tax if available
+        var $tax = $('.order_tax .amount, .tax .amount');
+        if ($tax.length) {
+            var taxText = $tax.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+            orderData.tax = parseFloat(taxText) || 0;
+        }
+
+        // Get shipping if available
+        var $shipping = $('.order_shipping .amount, .shipping .amount');
+        if ($shipping.length) {
+            var shippingText = $shipping.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+            orderData.shipping = parseFloat(shippingText) || 0;
+        }
+
+        return orderData.transaction_id && orderData.items.length > 0 ? orderData : null;
+    }
+
     // Initialize when DOM is ready
     $(document).ready(function() {
         initGTMTracking();
         initWishlistTracking();
         initCartViewTracking();
         initCheckoutTracking();
+        initPurchaseTracking();
     });
 
     // Also initialize if DOM is already ready
@@ -1478,6 +1714,7 @@
             initWishlistTracking();
             initCartViewTracking();
             initCheckoutTracking();
+            initPurchaseTracking();
         }, 1);
     }
 

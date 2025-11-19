@@ -23,7 +23,7 @@ class Q1_Shop_GTM_Tracking {
     /**
      * Script version
      */
-    const SCRIPT_VERSION = '1.0.6';
+    const SCRIPT_VERSION = '1.0.7';
 
     /**
      * Script handle
@@ -134,6 +134,27 @@ class Q1_Shop_GTM_Tracking {
         // Get checkout data if we're on the checkout page
         if (is_checkout() && function_exists('WC') && WC()->cart && !WC()->cart->is_empty()) {
             $data['checkout'] = $this->get_checkout_data();
+        }
+
+        // Get order data if we're on the order received page
+        if (function_exists('is_order_received_page') && is_order_received_page()) {
+            $order_id = absint(get_query_var('order-received'));
+            if ($order_id > 0) {
+                $order = wc_get_order($order_id);
+                if ($order && is_a($order, 'WC_Order')) {
+                    $data['order'] = $this->get_order_data($order);
+                }
+            }
+        } elseif (is_checkout() && isset($_GET['order-received'])) {
+            // Fallback: check if we're on checkout page with order-received parameter
+            $order_id = absint($_GET['order-received']);
+            if ($order_id > 0) {
+                $order_key = isset($_GET['key']) ? wc_clean($_GET['key']) : '';
+                $order = wc_get_order($order_id);
+                if ($order && is_a($order, 'WC_Order') && ($order_key === '' || hash_equals($order->get_order_key(), $order_key))) {
+                    $data['order'] = $this->get_order_data($order);
+                }
+            }
         }
 
         return $data;
@@ -352,6 +373,110 @@ class Q1_Shop_GTM_Tracking {
         }
 
         return $checkout_data;
+    }
+
+    /**
+     * Get order data for GTM purchase event
+     * 
+     * @param WC_Order $order Order object
+     * @return array
+     */
+    private function get_order_data($order) {
+        if (!is_a($order, 'WC_Order')) {
+            return array();
+        }
+
+        $order_data = array(
+            'transaction_id' => (string) $order->get_order_number(),
+            'items' => array(),
+            'value' => (float) $order->get_total(''),
+            'tax' => (float) $order->get_total_tax(''),
+            'shipping' => (float) $order->get_shipping_total(''),
+            'coupon' => '',
+            'customer_type' => ''
+        );
+
+        // Get applied coupons
+        $applied_coupons = $order->get_coupon_codes();
+        if (!empty($applied_coupons)) {
+            $order_data['coupon'] = implode(', ', $applied_coupons);
+            $order_data['coupons'] = $applied_coupons;
+        }
+
+        // Determine customer type (new or returning)
+        $customer_id = $order->get_customer_id();
+        if ($customer_id > 0) {
+            $order_count = wc_get_customer_order_count($customer_id);
+            $order_data['customer_type'] = ($order_count <= 1) ? 'new' : 'returning';
+        } else {
+            $order_data['customer_type'] = 'new';
+        }
+
+        $index = 0;
+        foreach ($order->get_items() as $item_id => $item) {
+            if (!is_a($item, 'WC_Order_Item_Product')) {
+                continue;
+            }
+
+            $product = $item->get_product();
+            if (!$product || !is_a($product, 'WC_Product')) {
+                continue;
+            }
+
+            $item_data = array(
+                'item_id' => $product->get_sku() ? $product->get_sku() : (string) $product->get_id(),
+                'item_name' => $item->get_name(),
+                'price' => (float) $order->get_item_subtotal($item, true, true),
+                'quantity' => (int) $item->get_quantity(),
+                'index' => $index
+            );
+
+            // Add coupon to item if available
+            if (!empty($applied_coupons)) {
+                $item_data['coupon'] = $order_data['coupon'];
+            }
+
+            // Calculate discount for this item
+            $item_subtotal = (float) $order->get_item_subtotal($item, false, true);
+            $item_total = (float) $order->get_item_total($item, false, true);
+            $item_discount = $item_subtotal - $item_total;
+            if ($item_discount > 0) {
+                $item_data['discount'] = round($item_discount, 2);
+            }
+
+            // Get product category
+            $product_id = $item->get_product_id();
+            $variation_id = $item->get_variation_id();
+            $categories = wp_get_post_terms($variation_id > 0 ? $variation_id : $product_id, 'product_cat');
+            if (!empty($categories) && !is_wp_error($categories)) {
+                $item_data['item_category'] = $categories[0]->name;
+                
+                // Add additional categories
+                if (count($categories) > 1) {
+                    foreach ($categories as $cat_index => $category) {
+                        if ($cat_index > 0) {
+                            $item_data['item_category' . ($cat_index + 1)] = $category->name;
+                        }
+                    }
+                }
+            }
+
+            // Handle variations
+            if ($variation_id > 0) {
+                $variation = wc_get_product($variation_id);
+                if ($variation && is_a($variation, 'WC_Product_Variation')) {
+                    $variation_attributes = $variation->get_variation_attributes();
+                    if (!empty($variation_attributes)) {
+                        $item_data['item_variant'] = implode(' / ', array_values($variation_attributes));
+                    }
+                }
+            }
+
+            $order_data['items'][] = $item_data;
+            $index++;
+        }
+
+        return $order_data;
     }
 
     /**
