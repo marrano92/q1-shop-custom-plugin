@@ -132,7 +132,8 @@ class Q1_Shop_GTM_Tracking {
             'currency_symbol' => get_woocommerce_currency_symbol(),
         );
 
-        if (is_product() && $product) {
+        // Only get product data if we're on a product page and $product is a valid WC_Product object
+        if (is_product() && $product && is_a($product, 'WC_Product')) {
             $data['product'] = $this->get_product_data($product);
         }
 
@@ -155,6 +156,11 @@ class Q1_Shop_GTM_Tracking {
      * @return array
      */
     private function get_product_data($product) {
+        // Verify $product is a valid WC_Product object
+        if (!is_a($product, 'WC_Product')) {
+            return array();
+        }
+
         $product_data = array(
             'id' => $product->get_id(),
             'name' => $product->get_name(),
@@ -182,6 +188,11 @@ class Q1_Shop_GTM_Tracking {
      * @return string|null
      */
     private function get_product_category($product) {
+        // Verify $product is a valid WC_Product object
+        if (!is_a($product, 'WC_Product')) {
+            return null;
+        }
+
         $categories = wp_get_post_terms($product->get_id(), 'product_cat');
         
         if (empty($categories) || is_wp_error($categories)) {
