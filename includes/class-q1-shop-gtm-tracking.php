@@ -84,11 +84,15 @@ class Q1_Shop_GTM_Tracking {
             return;
         }
 
+        // Add version directly to URL to ensure it's always present
+        // This bypasses any filters that might remove version numbers
+        $script_url = add_query_arg('ver', self::SCRIPT_VERSION, $script_url);
+
         wp_enqueue_script(
             self::SCRIPT_HANDLE,
             $script_url,
             array('jquery'),
-            self::SCRIPT_VERSION,
+            null, // Set to null since we already added version to URL
             true
         );
 
