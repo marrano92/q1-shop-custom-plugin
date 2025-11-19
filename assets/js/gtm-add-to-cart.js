@@ -35,13 +35,19 @@
             productData.quantity = parseInt(quantity, 10) || 1;
 
             // Get product card container - try multiple selectors to find the card
-            var $productCard = $button.closest('.woocommerce-card, .product, .type-product, .wc-block-grid__product');
+            // First try closest li.product (works for menu items and regular loops)
+            var $productCard = $button.closest('li.product, li.type-product');
             if (!$productCard.length) {
-                $productCard = $button.closest('li.product, li.type-product');
+                // Try other product containers
+                $productCard = $button.closest('.woocommerce-card, .product, .type-product, .wc-block-grid__product');
             }
             if (!$productCard.length) {
-                // Fallback: go up to find any container with product classes
-                $productCard = $button.parent().closest('.product, .type-product, .woocommerce-card');
+                // Fallback: go up through parents to find product container
+                $productCard = $button.parents('.product, .type-product, .woocommerce-card').first();
+            }
+            if (!$productCard.length) {
+                // Last resort: find the closest element with product classes in the same context
+                $productCard = $button.closest('.woocommerce').find('li.product').first();
             }
 
             // Get product name from card - try multiple selectors
@@ -86,6 +92,40 @@
             var $sku = $productCard.find('.sku, [itemprop="sku"]');
             if ($sku.length) {
                 productData.sku = $sku.text().trim();
+            }
+
+            // If we still don't have name or price, try to find them in the same container as the button
+            if (!productData.name || !productData.price) {
+                // Get the immediate parent container (woocommerce-card__header)
+                var $header = $button.closest('.woocommerce-card__header');
+                if ($header.length) {
+                    if (!productData.name) {
+                        var $title = $header.find('.woocommerce-loop-product__title a');
+                        if ($title.length) {
+                            productData.name = $title.text().trim() || $title.attr('aria-label') || '';
+                        }
+                    }
+                    if (!productData.price) {
+                        var $headerPrice = $header.find('.price .amount');
+                        if ($headerPrice.length) {
+                            var priceText = $headerPrice.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+                            productData.price = parseFloat(priceText) || '';
+                        }
+                    }
+                    if (!productData.category) {
+                        var $headerCategories = $header.find('.product__categories a');
+                        if ($headerCategories.length) {
+                            var categories = [];
+                            $headerCategories.each(function() {
+                                categories.push($(this).text().trim());
+                            });
+                            productData.category = categories[0] || '';
+                            if (categories.length > 1) {
+                                productData.categories = categories;
+                            }
+                        }
+                    }
+                }
             }
 
             return productData;
@@ -340,13 +380,23 @@
         // Remove loading class if present
         if ($triggerButton && $triggerButton.length) {
             $triggerButton.removeClass('loading');
+            // Mark as tracked
+            $triggerButton.data('gtm-tracked', true);
         }
 
         // Get product data
         var productData = getProductData($triggerButton);
 
-        // Send GTM event
-        sendGTMAddToCartEvent(productData);
+        // Only send event if we have required data
+        if (productData.id && productData.name) {
+            // Send GTM event
+            sendGTMAddToCartEvent(productData);
+        } else {
+            console.warn('Q1 Shop GTM: Could not retrieve product data for tracking', {
+                button: $triggerButton,
+                productData: productData
+            });
+        }
     }
 
     /**
@@ -368,6 +418,32 @@
                 setTimeout(function() {
                     handleAddedToCart(event, fragments, null, $button);
                 }, 100);
+            }
+        });
+
+        // Direct click listener as additional fallback for AJAX buttons
+        // This ensures we catch the event even if WooCommerce events don't fire
+        // This is especially important for menu items where events might not propagate correctly
+        $(document.body).on('click', '.add_to_cart_button.ajax_add_to_cart', function(e) {
+            var $button = $(this);
+            var productId = $button.data('product_id') || $button.attr('data-product_id');
+            
+            // Only track if it's an AJAX button with product_id
+            if (productId && $button.hasClass('ajax_add_to_cart')) {
+                // Store button reference and mark as not yet tracked
+                $button.data('gtm-tracked', false);
+                $button.data('gtm-click-time', Date.now());
+                
+                // Set a timeout to track if the event doesn't fire within 800ms
+                // WooCommerce usually fires added_to_cart within 200-500ms
+                setTimeout(function() {
+                    if (!$button.data('gtm-tracked')) {
+                        // Event didn't fire, track manually
+                        console.log('Q1 Shop GTM: Tracking manually - added_to_cart event did not fire', $button);
+                        handleAddedToCart(null, null, null, $button);
+                        $button.data('gtm-tracked', true);
+                    }
+                }, 800);
             }
         });
 
