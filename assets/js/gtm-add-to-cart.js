@@ -25,7 +25,73 @@
             quantity: 1
         };
 
-        // Try to get product data from the button's form
+        // Check if this is a loop/archive button (has data-product_id attribute)
+        var productId = $button.data('product_id') || $button.attr('data-product_id');
+        var quantity = $button.data('quantity') || $button.attr('data-quantity') || 1;
+
+        // If it's a loop button, get data from the product card
+        if (productId && $button.hasClass('ajax_add_to_cart')) {
+            productData.id = productId;
+            productData.quantity = parseInt(quantity, 10) || 1;
+
+            // Get product card container - try multiple selectors to find the card
+            var $productCard = $button.closest('.woocommerce-card, .product, .type-product, .wc-block-grid__product');
+            if (!$productCard.length) {
+                $productCard = $button.closest('li.product, li.type-product');
+            }
+            if (!$productCard.length) {
+                // Fallback: go up to find any container with product classes
+                $productCard = $button.parent().closest('.product, .type-product, .woocommerce-card');
+            }
+
+            // Get product name from card - try multiple selectors
+            var $productTitle = $productCard.find('.woocommerce-loop-product__title a, .woocommerce-LoopProduct-link');
+            if (!$productTitle.length) {
+                $productTitle = $productCard.find('h2 a, h3 a, .product-title a, a.woocommerce-LoopProduct-link');
+            }
+            if ($productTitle.length) {
+                productData.name = $productTitle.text().trim() || $productTitle.attr('aria-label') || '';
+            }
+
+            // Get price from card - check multiple locations
+            var $price = $productCard.find('.price .woocommerce-Price-amount.amount, .price .amount');
+            if (!$price.length) {
+                $price = $productCard.find('.woocommerce-Price-amount, .price');
+            }
+            if ($price.length) {
+                var priceText = $price.first().text().replace(/[^\d,.-]/g, '').replace(',', '.');
+                productData.price = parseFloat(priceText) || '';
+            }
+
+            // Get categories from card - check for .product__categories first (from your HTML structure)
+            var $categories = $productCard.find('.product__categories a');
+            if (!$categories.length) {
+                $categories = $productCard.find('.posted_in a, .product_meta .posted_in a');
+            }
+            if ($categories.length) {
+                var categories = [];
+                $categories.each(function() {
+                    var catText = $(this).text().trim();
+                    if (catText) {
+                        categories.push(catText);
+                    }
+                });
+                productData.category = categories[0] || '';
+                if (categories.length > 1) {
+                    productData.categories = categories;
+                }
+            }
+
+            // Try to get SKU if available
+            var $sku = $productCard.find('.sku, [itemprop="sku"]');
+            if ($sku.length) {
+                productData.sku = $sku.text().trim();
+            }
+
+            return productData;
+        }
+
+        // Try to get product data from the button's form (single product page)
         var $form = $button.closest('form.cart');
         
         if ($form.length) {
@@ -165,7 +231,7 @@
     }
 
     /**
-     * Send Enhanced Ecommerce event to GTM
+     * Send Enhanced Ecommerce event to GTM using gtag format
      */
     function sendGTMAddToCartEvent(productData) {
         // Ensure we have required data
@@ -184,43 +250,63 @@
         var quantity = parseInt(productData.quantity, 10) || 1;
         var value = (price * quantity).toFixed(2);
 
-        // Build product object for Enhanced Ecommerce
-        var product = {
-            id: String(productData.id),
-            name: productData.name,
-            price: price.toFixed(2),
-            quantity: quantity
+        // Build item object for gtag event
+        var item = {
+            item_id: productData.sku || String(productData.id),
+            item_name: productData.name,
+            price: parseFloat(price.toFixed(2)),
+            quantity: quantity,
+            index: 0
         };
 
-        if (productData.sku) {
-            product.sku = productData.sku;
-        }
-
+        // Add optional fields
         if (productData.category) {
-            product.category = productData.category;
+            item.item_category = productData.category;
+            
+            // If we have multiple categories, add them as item_category2, item_category3, etc.
+            if (productData.categories && Array.isArray(productData.categories)) {
+                productData.categories.forEach(function(cat, index) {
+                    if (index > 0) {
+                        item['item_category' + (index + 1)] = cat;
+                    }
+                });
+            }
         }
 
         if (productData.variant) {
-            product.variant = productData.variant;
+            item.item_variant = productData.variant;
         }
 
-        // Push event to dataLayer
-        window.dataLayer.push({
-            'event': 'addToCart',
-            'ecommerce': {
-                'currencyCode': currency,
-                'add': {
-                    'products': [product]
-                },
-                'value': value
-            }
-        });
+        if (productData.brand) {
+            item.item_brand = productData.brand;
+        }
+
+        // Build event data object
+        var eventData = {
+            currency: currency,
+            value: parseFloat(value),
+            items: [item]
+        };
+
+        // Send event using gtag if available, otherwise use dataLayer
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'add_to_cart', eventData);
+        } else {
+            // Fallback to dataLayer for GTM
+            window.dataLayer = window.dataLayer || [];
+            window.dataLayer.push({
+                'event': 'add_to_cart',
+                'currency': currency,
+                'value': parseFloat(value),
+                'items': [item]
+            });
+        }
 
         // Debug log (remove in production if needed)
         if (window.console && console.log) {
-            console.log('Q1 Shop GTM: addToCart event sent', {
-                event: 'addToCart',
-                product: product,
+            console.log('Q1 Shop GTM: add_to_cart event sent', {
+                event: 'add_to_cart',
+                item: item,
                 value: value,
                 currency: currency
             });
@@ -232,11 +318,28 @@
      */
     function handleAddedToCart(event, fragments, cartHash, $button) {
         // Get the button that triggered the event
-        var $triggerButton = $button || $('.single_add_to_cart_button:last, .add_to_cart_button:last');
+        // WooCommerce passes the button as third parameter
+        var $triggerButton = $button;
         
-        // If no button found, try to find the form
+        // If button not provided, try to find it
         if (!$triggerButton || $triggerButton.length === 0) {
-            $triggerButton = $('form.cart button[type="submit"]:last');
+            // Look for buttons with loading class (just clicked)
+            $triggerButton = $('.add_to_cart_button.loading, .single_add_to_cart_button.loading');
+            
+            // If still not found, try to find the last clicked button
+            if (!$triggerButton || $triggerButton.length === 0) {
+                $triggerButton = $('.add_to_cart_button:last, .single_add_to_cart_button:last');
+            }
+            
+            // If still not found, try to find form submit button
+            if (!$triggerButton || $triggerButton.length === 0) {
+                $triggerButton = $('form.cart button[type="submit"]:last');
+            }
+        }
+
+        // Remove loading class if present
+        if ($triggerButton && $triggerButton.length) {
+            $triggerButton.removeClass('loading');
         }
 
         // Get product data
@@ -256,13 +359,12 @@
         });
 
         // Also listen for wc_fragment_refresh which happens after AJAX add to cart
+        // This is a fallback in case added_to_cart event is not triggered
         $(document.body).on('wc_fragment_refresh', function(event, fragments) {
             // Check if this was triggered by an add to cart action
             // by looking for the button that was clicked
             var $button = $('.single_add_to_cart_button.loading, .add_to_cart_button.loading');
             if ($button.length) {
-                // Remove loading class and trigger our handler
-                $button.removeClass('loading');
                 setTimeout(function() {
                     handleAddedToCart(event, fragments, null, $button);
                 }, 100);
