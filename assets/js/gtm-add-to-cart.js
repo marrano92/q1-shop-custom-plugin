@@ -826,17 +826,20 @@
 
         // Prevent duplicate events - check if cart was already tracked
         var lastTrackedCartHash = window.sessionStorage.getItem('last_gtm_view_cart_hash');
+        var lastTrackedTime = parseInt(window.sessionStorage.getItem('last_gtm_view_cart_time') || '0');
+        var currentTime = Date.now();
         var currentCartHash = JSON.stringify(cartData.items.map(function(item) {
             return item.item_id + '_' + item.quantity;
         }).join('|'));
         
-        // If the same cart was tracked, skip
-        if (lastTrackedCartHash === currentCartHash) {
+        // If the same cart was tracked within the last 2 seconds, skip
+        if (lastTrackedCartHash === currentCartHash && (currentTime - lastTrackedTime) < 2000) {
             return; // Skip duplicate event
         }
         
         // Store this event to prevent duplicates
         window.sessionStorage.setItem('last_gtm_view_cart_hash', currentCartHash);
+        window.sessionStorage.setItem('last_gtm_view_cart_time', currentTime.toString());
 
         var currency = 'EUR';
         if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.currency) {
@@ -1380,20 +1383,30 @@
     /**
      * Initialize cart view tracking
      */
+    var cartViewTrackingInitialized = false;
     function initCartViewTracking() {
+        // Prevent double initialization
+        if (cartViewTrackingInitialized) {
+            return;
+        }
+        cartViewTrackingInitialized = true;
+
         // Track cart page view
         if ($('body').hasClass('woocommerce-cart')) {
-            // Check if cart data is available from localized script
-            if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.cart && q1ShopGTM.cart.items && q1ShopGTM.cart.items.length > 0) {
-                // Use localized cart data
-                sendGTMViewCartEvent(q1ShopGTM.cart);
-            } else {
-                // Fallback: try to get cart data from DOM
-                var cartData = getCartDataFromDOM();
-                if (cartData && cartData.items && cartData.items.length > 0) {
-                    sendGTMViewCartEvent(cartData);
+            // Use a small delay to ensure DOM is fully ready
+            setTimeout(function() {
+                // Check if cart data is available from localized script
+                if (typeof q1ShopGTM !== 'undefined' && q1ShopGTM.cart && q1ShopGTM.cart.items && q1ShopGTM.cart.items.length > 0) {
+                    // Use localized cart data
+                    sendGTMViewCartEvent(q1ShopGTM.cart);
+                } else {
+                    // Fallback: try to get cart data from DOM
+                    var cartData = getCartDataFromDOM();
+                    if (cartData && cartData.items && cartData.items.length > 0) {
+                        sendGTMViewCartEvent(cartData);
+                    }
                 }
-            }
+            }, 100);
         }
 
         // Track mini cart drawer open (click on cart icon in header)
@@ -1496,13 +1509,22 @@
     /**
      * Track mini cart view (when drawer opens)
      */
+    var miniCartViewTracking = false;
     function trackMiniCartView() {
         // Prevent duplicate events
         var lastTrackedTime = parseInt(window.sessionStorage.getItem('last_gtm_mini_cart_view_time') || '0');
-        if (Date.now() - lastTrackedTime < 2000) {
+        var currentTime = Date.now();
+        if (currentTime - lastTrackedTime < 2000) {
             return; // Skip if tracked within last 2 seconds
         }
-        window.sessionStorage.setItem('last_gtm_mini_cart_view_time', Date.now().toString());
+        
+        // Also check if we're already tracking (prevent concurrent calls)
+        if (miniCartViewTracking) {
+            return;
+        }
+        miniCartViewTracking = true;
+        
+        window.sessionStorage.setItem('last_gtm_mini_cart_view_time', currentTime.toString());
 
         // Try to get cart data from mini cart drawer
         var cartData = getMiniCartDataFromDOM();
@@ -1521,6 +1543,11 @@
                 }
             }
         }
+        
+        // Reset tracking flag after a short delay
+        setTimeout(function() {
+            miniCartViewTracking = false;
+        }, 500);
     }
 
     /**
