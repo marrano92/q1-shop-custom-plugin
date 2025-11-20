@@ -1,0 +1,103 @@
+/**
+ * Post Template Styles
+ * 
+ * Custom styles for single post featured image optimization
+ * 
+ * @package Q1_Shop_Custom_Plugin
+ * @since 1.0.0
+ */
+
+/* Featured Image Wrapper */
+.q1-shop-featured-image-wrapper {
+    width: 100%;
+    overflow: hidden;
+    margin: 1.5rem 0 2rem 0;
+    position: relative;
+    display: block;
+}
+
+/* Featured Image */
+.q1-shop-featured-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+/* Desktop: Altezza proporzionale al viewport (60vh max) */
+@media (min-width: 993px) {
+    .q1-shop-featured-image-wrapper {
+        max-height: 60vh;
+        margin: 2rem 0 2.5rem 0;
+    }
+    
+    .q1-shop-featured-image {
+        max-height: 60vh;
+        object-fit: cover;
+        object-position: center;
+    }
+}
+
+/* Tablet: Altezza proporzionale al viewport (50vh max) */
+@media (min-width: 769px) and (max-width: 992px) {
+    .q1-shop-featured-image-wrapper {
+        max-height: 50vh;
+        margin: 1.75rem 0 2rem 0;
+    }
+    
+    .q1-shop-featured-image {
+        max-height: 50vh;
+        object-fit: cover;
+        object-position: center;
+    }
+}
+
+/* Mobile: Altezza proporzionale al viewport (40vh max) */
+@media (max-width: 768px) {
+    .q1-shop-featured-image-wrapper {
+        max-height: 40vh;
+        margin: 1.25rem 0 1.75rem 0;
+    }
+    
+    .q1-shop-featured-image {
+        max-height: 40vh;
+        object-fit: cover;
+        object-position: center;
+    }
+}
+
+/* Ensure image doesn't break layout on very small screens */
+@media (max-width: 480px) {
+    .q1-shop-featured-image-wrapper {
+        max-height: 35vh;
+        margin: 1rem 0 1.5rem 0;
+    }
+    
+    .q1-shop-featured-image {
+        max-height: 35vh;
+    }
+}
+
+/* Smooth hover effect (optional, for better UX) */
+@media (min-width: 993px) {
+    .q1-shop-featured-image-wrapper:hover .q1-shop-featured-image {
+        transform: scale(1.02);
+    }
+}
+
+/* Ensure proper spacing with entry header */
+.single-post .entry-header + .q1-shop-featured-image-wrapper {
+    margin-top: 1.5rem;
+}
+
+/* Compatibility with theme layout */
+.single-post.post-l2 .q1-shop-featured-image-wrapper {
+    max-width: 100%;
+}
+
+/* Ensure image doesn't interfere with content */
+.single-post .q1-shop-featured-image-wrapper + .entry-content {
+    margin-top: 0;
+}
+

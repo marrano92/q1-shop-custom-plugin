@@ -22,6 +22,9 @@ if (!defined('ABSPATH')) {
 // Load GTM Tracking class
 require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-gtm-tracking.php';
 
+// Load Post Template class
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-post-template.php';
+
 /**
  * Class Q1_Shop_Stripe_Alert
  * 
@@ -86,6 +89,7 @@ class Q1_Shop_Stripe_Alert {
 // Initialize plugins
 new Q1_Shop_Stripe_Alert();
 new Q1_Shop_GTM_Tracking(__FILE__);
+new Q1_Shop_Post_Template(__FILE__);
 
 add_filter('woocommerce_loop_add_to_cart_link', function($html, $product){
     if (! $product || ! $product->is_purchasable()) return $html;
