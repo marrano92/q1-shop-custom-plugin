@@ -123,10 +123,36 @@ class Q1_Shop_Post_Template {
             $image_attributes['height'] = $image_meta['height'];
         }
         
-        // Output featured image with wrapper
+        // Get post categories for badge
+        $categories = get_the_category();
+        $category_name = !empty($categories) ? esc_html($categories[0]->name) : '';
+        
+        // Get reading time estimate
+        $content = get_post_field('post_content', $post->ID);
+        $word_count = str_word_count(strip_tags($content));
+        $reading_time = ceil($word_count / 200); // Average reading speed: 200 words/min
+        
+        // Output modern featured image with enhanced structure
         echo '<div class="q1-shop-featured-image-wrapper">';
+        echo '<div class="q1-shop-featured-image-container">';
+        echo '<div class="q1-shop-image-overlay"></div>';
         echo get_the_post_thumbnail($post->ID, $image_size, $image_attributes);
+        
+        // Add modern badges and metadata
+        echo '<div class="q1-shop-post-badges">';
+        if (!empty($category_name)) {
+            echo '<span class="q1-shop-category-badge">' . $category_name . '</span>';
+        }
+        if ($reading_time > 0) {
+            $reading_text = $reading_time === 1 
+                ? sprintf(__('%d min read', 'q1-shop-stripe-alert'), $reading_time)
+                : sprintf(__('%d min read', 'q1-shop-stripe-alert'), $reading_time);
+            echo '<span class="q1-shop-reading-time">' . esc_html($reading_text) . '</span>';
+        }
         echo '</div>';
+        
+        echo '</div>'; // .q1-shop-featured-image-container
+        echo '</div>'; // .q1-shop-featured-image-wrapper
     }
 
     /**

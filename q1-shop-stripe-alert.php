@@ -19,11 +19,25 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
+// SEO Assistant constants
+define( 'Q1_SHOP_SEO_VERSION', '1.0.0' );
+define( 'Q1_SHOP_SEO_PATH', plugin_dir_path( __FILE__ ) );
+define( 'Q1_SHOP_SEO_URL', plugin_dir_url( __FILE__ ) );
+
 // Load GTM Tracking class
 require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-gtm-tracking.php';
 
 // Load Post Template class
 require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-post-template.php';
+
+// Load SEO Settings class (before SEO Assistant — dependency order)
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-seo-settings.php';
+
+// Load N8n Client class (after settings, before assistant)
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-n8n-client.php';
+
+// Load SEO Assistant class
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-seo-assistant.php';
 
 /**
  * Class Q1_Shop_Stripe_Alert
@@ -90,6 +104,8 @@ class Q1_Shop_Stripe_Alert {
 new Q1_Shop_Stripe_Alert();
 new Q1_Shop_GTM_Tracking(__FILE__);
 new Q1_Shop_Post_Template(__FILE__);
+new Q1_Shop_SEO_Settings();
+new Q1_Shop_SEO_Assistant(__FILE__);
 
 add_filter('woocommerce_loop_add_to_cart_link', function($html, $product){
     if (! $product || ! $product->is_purchasable()) return $html;
