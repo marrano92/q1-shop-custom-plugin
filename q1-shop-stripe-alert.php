@@ -33,8 +33,23 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-post-template.p
 // Load SEO Settings class (before SEO Assistant — dependency order)
 require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-seo-settings.php';
 
-// Load N8n Client class (after settings, before assistant)
+// Load SEO Logger (static service, before n8n client)
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-seo-logger.php';
+
+// Load N8n Client class (after settings + logger, before assistant)
 require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-n8n-client.php';
+
+// Load WooCommerce Context extractor (static service, no hooks)
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-wc-context.php';
+
+// Load Keyword Research service (after n8n client + wc context)
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-keyword-research.php';
+
+// Load Content Collector (static service, no hooks)
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-content-collector.php';
+
+// Load SEO Audit service (after n8n client + content collector)
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-seo-audit.php';
 
 // Load SEO Assistant class
 require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-seo-assistant.php';
@@ -105,6 +120,8 @@ new Q1_Shop_Stripe_Alert();
 new Q1_Shop_GTM_Tracking(__FILE__);
 new Q1_Shop_Post_Template(__FILE__);
 new Q1_Shop_SEO_Settings();
+new Q1_Shop_Keyword_Research();
+new Q1_Shop_SEO_Audit();
 new Q1_Shop_SEO_Assistant(__FILE__);
 
 add_filter('woocommerce_loop_add_to_cart_link', function($html, $product){

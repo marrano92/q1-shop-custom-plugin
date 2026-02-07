@@ -55,35 +55,6 @@ class Q1_Shop_SEO_Settings {
 			)
 		);
 
-		// Campi AI — informativi: le credenziali operative risiedono in n8n.
-		add_settings_field(
-			'ai_provider',
-			__( 'Provider AI', 'q1-shop-stripe-alert' ),
-			array( $this, 'render_field_select' ),
-			'q1-seo-settings',
-			self::SECTION_ID,
-			array(
-				'field'       => 'ai_provider',
-				'options'     => array(
-					'openai' => 'OpenAI (GPT)',
-					'gemini' => 'Google Gemini',
-				),
-				'description' => __( 'Provider AI configurato in n8n. Questo campo è informativo.', 'q1-shop-stripe-alert' ),
-			)
-		);
-
-		add_settings_field(
-			'ai_api_key',
-			__( 'API Key AI', 'q1-shop-stripe-alert' ),
-			array( $this, 'render_field_password' ),
-			'q1-seo-settings',
-			self::SECTION_ID,
-			array(
-				'field'       => 'ai_api_key',
-				'description' => __( 'Chiave API del provider AI (riferimento). Le credenziali operative sono in n8n.', 'q1-shop-stripe-alert' ),
-			)
-		);
-
 		add_settings_field(
 			'daily_audit_limit',
 			__( 'Limite audit giornaliero', 'q1-shop-stripe-alert' ),
@@ -96,6 +67,21 @@ class Q1_Shop_SEO_Settings {
 				'min'         => 1,
 				'max'         => 100,
 				'description' => __( 'Numero massimo di analisi SEO al giorno', 'q1-shop-stripe-alert' ),
+			)
+		);
+
+		add_settings_field(
+			'daily_keyword_limit',
+			__( 'Limite keyword research giornaliero', 'q1-shop-stripe-alert' ),
+			array( $this, 'render_field_number' ),
+			'q1-seo-settings',
+			self::SECTION_ID,
+			array(
+				'field'       => 'daily_keyword_limit',
+				'default'     => 50,
+				'min'         => 1,
+				'max'         => 200,
+				'description' => __( 'Numero massimo di ricerche keyword al giorno', 'q1-shop-stripe-alert' ),
 			)
 		);
 	}
@@ -128,28 +114,6 @@ class Q1_Shop_SEO_Settings {
 			esc_attr( self::OPTION_NAME ),
 			esc_attr( $value )
 		);
-		if ( ! empty( $args['description'] ) ) {
-			printf( '<p class="description">%s</p>', esc_html( $args['description'] ) );
-		}
-	}
-
-	public function render_field_select( $args ) {
-		$options = get_option( self::OPTION_NAME, array() );
-		$value   = isset( $options[ $args['field'] ] ) ? $options[ $args['field'] ] : '';
-		printf(
-			'<select id="%1$s" name="%2$s[%1$s]">',
-			esc_attr( $args['field'] ),
-			esc_attr( self::OPTION_NAME )
-		);
-		foreach ( $args['options'] as $key => $label ) {
-			printf(
-				'<option value="%s" %s>%s</option>',
-				esc_attr( $key ),
-				selected( $value, $key, false ),
-				esc_html( $label )
-			);
-		}
-		echo '</select>';
 		if ( ! empty( $args['description'] ) ) {
 			printf( '<p class="description">%s</p>', esc_html( $args['description'] ) );
 		}
@@ -188,18 +152,15 @@ class Q1_Shop_SEO_Settings {
 			? sanitize_text_field( $input['n8n_webhook_token'] )
 			: '';
 
-		$sanitized['ai_provider'] = isset( $input['ai_provider'] ) && in_array( $input['ai_provider'], array( 'openai', 'gemini' ), true )
-			? $input['ai_provider']
-			: 'openai';
-
-		$sanitized['ai_api_key'] = isset( $input['ai_api_key'] )
-			? sanitize_text_field( $input['ai_api_key'] )
-			: '';
-
 		$sanitized['daily_audit_limit'] = isset( $input['daily_audit_limit'] )
 			? absint( $input['daily_audit_limit'] )
 			: 20;
 		$sanitized['daily_audit_limit'] = max( 1, min( 100, $sanitized['daily_audit_limit'] ) );
+
+		$sanitized['daily_keyword_limit'] = isset( $input['daily_keyword_limit'] )
+			? absint( $input['daily_keyword_limit'] )
+			: 50;
+		$sanitized['daily_keyword_limit'] = max( 1, min( 200, $sanitized['daily_keyword_limit'] ) );
 
 		return $sanitized;
 	}
@@ -214,5 +175,24 @@ class Q1_Shop_SEO_Settings {
 	public static function get_option( $key, $default = '' ) {
 		$options = get_option( self::OPTION_NAME, array() );
 		return isset( $options[ $key ] ) ? $options[ $key ] : $default;
+	}
+
+	/**
+	 * Get daily usage stats for the budget widget.
+	 *
+	 * @return array
+	 */
+	public static function get_usage_stats() {
+		$today         = gmdate( 'Y-m-d' );
+		$audit_limit   = (int) self::get_option( 'daily_audit_limit', 20 );
+		$keyword_limit = (int) self::get_option( 'daily_keyword_limit', 50 );
+
+		return array(
+			'keyword_today' => (int) get_transient( 'q1_seo_kw_count_' . $today ),
+			'keyword_limit' => $keyword_limit,
+			'audit_today'   => (int) get_transient( 'q1_seo_audit_count_' . $today ),
+			'audit_limit'   => $audit_limit,
+			'date'          => $today,
+		);
 	}
 }

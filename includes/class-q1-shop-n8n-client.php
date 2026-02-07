@@ -5,7 +5,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Q1_Shop_N8n_Client {
 
-	const DEFAULT_TIMEOUT = 30;
+	const DEFAULT_TIMEOUT  = 30;
+	const MAX_ATTEMPTS     = 3;
+	const ATTEMPT_TIMEOUT  = 10;
 
 	const ENDPOINT_KEYWORD_RESEARCH = '/webhook/seo-keyword-research';
 	const ENDPOINT_SEO_AUDIT        = '/webhook/seo-audit';
@@ -120,25 +122,33 @@ class Q1_Shop_N8n_Client {
 	}
 
 	/**
-	 * Execute a POST request to n8n.
+	 * Execute a POST request to n8n with retry on transport/server errors.
+	 *
+	 * Retry strategy: immediate retry (no sleep) with reduced per-attempt timeout
+	 * so total wall time stays under ~30s (ATTEMPT_TIMEOUT × MAX_ATTEMPTS).
 	 *
 	 * @param string $endpoint Relative webhook path.
 	 * @param array  $payload  Data to send as JSON.
+	 * @param int    $attempt  Current attempt number (1-based).
 	 * @return array|WP_Error  Decoded response or error.
 	 */
-	private function post( $endpoint, $payload ) {
+	private function post( $endpoint, $payload, $attempt = 1 ) {
 		if ( empty( $this->base_url ) ) {
-			return new WP_Error(
+			$error = new WP_Error(
 				'n8n_not_configured',
-				__( 'URL base n8n non configurato. Vai in Impostazioni.', 'q1-shop-stripe-alert' )
+				$this->get_user_message( 'n8n_not_configured' )
 			);
+			Q1_Shop_SEO_Logger::error( 'n8n non configurato', array( 'endpoint' => $endpoint ) );
+			return $error;
 		}
 
-		$url = rtrim( $this->base_url, '/' ) . $endpoint;
+		$url             = rtrim( $this->base_url, '/' ) . $endpoint;
+		$attempt_timeout = min( $this->timeout, self::ATTEMPT_TIMEOUT );
+		$start_time      = microtime( true );
 
 		$args = array(
 			'method'  => 'POST',
-			'timeout' => $this->timeout,
+			'timeout' => $attempt_timeout,
 			'headers' => array(
 				'Content-Type'  => 'application/json',
 				'Authorization' => 'Bearer ' . $this->token,
@@ -148,22 +158,45 @@ class Q1_Shop_N8n_Client {
 
 		$response = wp_remote_post( $url, $args );
 
+		// Transport error — retry immediately.
 		if ( is_wp_error( $response ) ) {
-			return new WP_Error(
+			if ( $attempt < self::MAX_ATTEMPTS ) {
+				Q1_Shop_SEO_Logger::warning( 'Retry n8n (tentativo ' . $attempt . ')', array(
+					'endpoint' => $endpoint,
+					'error'    => $response->get_error_message(),
+				) );
+				return $this->post( $endpoint, $payload, $attempt + 1 );
+			}
+			$duration_ms = round( ( microtime( true ) - $start_time ) * 1000 );
+			$error       = new WP_Error(
 				'n8n_connection_error',
 				sprintf(
-					/* translators: %s: error message from wp_remote_post */
-					__( 'Errore di connessione a n8n: %s', 'q1-shop-stripe-alert' ),
+					/* translators: 1: number of attempts, 2: error message */
+					__( 'Impossibile connettersi a n8n dopo %1$d tentativi: %2$s', 'q1-shop-stripe-alert' ),
+					self::MAX_ATTEMPTS,
 					$response->get_error_message()
 				)
 			);
+			Q1_Shop_SEO_Logger::api_call( $endpoint, $payload, $error, $duration_ms );
+			return $error;
 		}
 
 		$status_code = wp_remote_retrieve_response_code( $response );
 		$body        = wp_remote_retrieve_body( $response );
 
+		// Server error (5xx) — retry immediately.
+		if ( $status_code >= 500 && $attempt < self::MAX_ATTEMPTS ) {
+			Q1_Shop_SEO_Logger::warning( 'Retry n8n su HTTP ' . $status_code . ' (tentativo ' . $attempt . ')', array(
+				'endpoint' => $endpoint,
+			) );
+			return $this->post( $endpoint, $payload, $attempt + 1 );
+		}
+
+		$duration_ms = round( ( microtime( true ) - $start_time ) * 1000 );
+
+		// Client error (4xx) — no retry, configuration/request problem.
 		if ( $status_code < 200 || $status_code >= 300 ) {
-			return new WP_Error(
+			$error = new WP_Error(
 				'n8n_http_error',
 				sprintf(
 					/* translators: 1: HTTP status code, 2: HTTP status message */
@@ -172,17 +205,49 @@ class Q1_Shop_N8n_Client {
 					wp_remote_retrieve_response_message( $response )
 				)
 			);
+			Q1_Shop_SEO_Logger::api_call( $endpoint, $payload, $error, $duration_ms );
+			return $error;
 		}
 
 		$data = json_decode( $body, true );
 
 		if ( json_last_error() !== JSON_ERROR_NONE ) {
-			return new WP_Error(
+			$error = new WP_Error(
 				'n8n_json_error',
-				__( 'Risposta n8n non è un JSON valido.', 'q1-shop-stripe-alert' )
+				sprintf(
+					/* translators: %s: preview of the raw response body */
+					__( 'Risposta n8n non è un JSON valido. Anteprima body: %s', 'q1-shop-stripe-alert' ),
+					substr( $body, 0, 300 )
+				)
 			);
+			Q1_Shop_SEO_Logger::api_call( $endpoint, $payload, $error, $duration_ms );
+			return $error;
 		}
 
+		// n8n can wrap the response in an array — unwrap first element.
+		if ( isset( $data[0] ) && ! isset( $data['success'] ) && is_array( $data[0] ) ) {
+			$data = $data[0];
+		}
+
+		Q1_Shop_SEO_Logger::api_call( $endpoint, $payload, $data, $duration_ms );
 		return $data;
+	}
+
+	/**
+	 * Map error codes to user-friendly Italian messages.
+	 *
+	 * @param string $error_code WP_Error code.
+	 * @return string Localized message.
+	 */
+	private function get_user_message( $error_code ) {
+		$messages = array(
+			'n8n_not_configured'   => __( 'URL base n8n non configurato. Vai in AI SEO Assistant > Impostazioni.', 'q1-shop-stripe-alert' ),
+			'n8n_connection_error' => __( 'Impossibile connettersi a n8n. Verifica che il servizio sia attivo e raggiungibile.', 'q1-shop-stripe-alert' ),
+			'n8n_http_error'       => __( 'Il servizio n8n ha risposto con un errore. Controlla i log di n8n.', 'q1-shop-stripe-alert' ),
+			'n8n_json_error'       => __( 'Risposta n8n non valida. Verifica la configurazione del workflow.', 'q1-shop-stripe-alert' ),
+		);
+		return isset( $messages[ $error_code ] )
+			? $messages[ $error_code ]
+			: __( 'Errore sconosciuto. Riprova.', 'q1-shop-stripe-alert' );
 	}
 }

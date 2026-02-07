@@ -1,69 +1,66 @@
-# Italian translation for Q1 Shop Stripe Alert
 # Copyright (C) 2026 Andrea Marrano
 # This file is distributed under the GPL v2 or later.
 msgid ""
 msgstr ""
 "Project-Id-Version: Q1 Shop Stripe Alert 1.0.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/q1-shop-custom-plugin\n"
-"Last-Translator: Andrea Marrano <andrea.marrano92@gmail.com>\n"
-"Language-Team: Italian\n"
-"Language: it_IT\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "POT-Creation-Date: 2026-02-07T11:26:42+00:00\n"
-"PO-Revision-Date: 2026-02-07 12:00+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: q1-shop-stripe-alert\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. Plugin Name of the plugin
 #: q1-shop-stripe-alert.php
 msgid "Q1 Shop Stripe Alert"
-msgstr "Q1 Shop Stripe Alert"
+msgstr ""
 
 #. Plugin URI of the plugin
 #: q1-shop-stripe-alert.php
 msgid "https://github.com/yourusername/q1-shop-stripe-alert"
-msgstr "https://github.com/yourusername/q1-shop-stripe-alert"
+msgstr ""
 
 #. Description of the plugin
 #: q1-shop-stripe-alert.php
 msgid "Adds a Stripe payment alert box above the credit card information in WooCommerce checkout"
-msgstr "Aggiunge un avviso Stripe sopra le informazioni della carta di credito nel checkout WooCommerce"
+msgstr ""
 
 #. Author of the plugin
 #: q1-shop-stripe-alert.php
 msgid "Andrea Marrano"
-msgstr "Andrea Marrano"
+msgstr ""
 
 #. Author URI of the plugin
 #: q1-shop-stripe-alert.php
 msgid "mailto:andrea.marrano92@gmail.com"
-msgstr "mailto:andrea.marrano92@gmail.com"
+msgstr ""
 
 #: includes/class-q1-shop-content-collector.php:17
 msgid "Articolo non trovato."
-msgstr "Articolo non trovato."
+msgstr ""
 
 #: includes/class-q1-shop-keyword-research.php:36
 #: includes/class-q1-shop-seo-assistant.php:167
 msgid "Inserisci una parola chiave."
-msgstr "Inserisci una parola chiave."
+msgstr ""
 
 #: includes/class-q1-shop-keyword-research.php:52
 msgid "Ricerca già in corso per questa keyword. Attendi il completamento."
-msgstr "Ricerca già in corso per questa keyword. Attendi il completamento."
+msgstr ""
 
 #. translators: %d: daily keyword limit
 #: includes/class-q1-shop-keyword-research.php:68
 #, php-format
 msgid "Limite giornaliero di %d ricerche keyword raggiunto. Riprova domani."
-msgstr "Limite giornaliero di %d ricerche keyword raggiunto. Riprova domani."
+msgstr ""
 
 #: includes/class-q1-shop-keyword-research.php:94
 msgid "Risposta non valida dal servizio keyword research."
-msgstr "Risposta non valida dal servizio keyword research."
+msgstr ""
 
 #: includes/class-q1-shop-keyword-research.php:117
 #: includes/class-q1-shop-keyword-research.php:144
@@ -71,86 +68,86 @@ msgstr "Risposta non valida dal servizio keyword research."
 #: includes/class-q1-shop-seo-audit.php:98
 #: includes/class-q1-shop-seo-audit.php:123
 msgid "Permesso negato."
-msgstr "Permesso negato."
+msgstr ""
 
 #: includes/class-q1-shop-keyword-research.php:153
 msgid "Keyword mancante."
-msgstr "Keyword mancante."
+msgstr ""
 
 #. translators: %s: post title
 #: includes/class-q1-shop-keyword-research.php:181
 #, php-format
 msgid "Bozza creata: \"%s\""
-msgstr "Bozza creata: \"%s\""
+msgstr ""
 
 #: includes/class-q1-shop-n8n-client.php:70
 msgid "URL n8n non configurato."
-msgstr "URL n8n non configurato."
+msgstr ""
 
 #: includes/class-q1-shop-n8n-client.php:109
 msgid "Connessione a n8n riuscita!"
-msgstr "Connessione a n8n riuscita!"
+msgstr ""
 
 #. translators: 1: number of attempts, 2: error message
 #: includes/class-q1-shop-n8n-client.php:175
 #, php-format
 msgid "Impossibile connettersi a n8n dopo %1$d tentativi: %2$s"
-msgstr "Impossibile connettersi a n8n dopo %1$d tentativi: %2$s"
+msgstr ""
 
 #. translators: 1: HTTP status code, 2: HTTP status message
 #: includes/class-q1-shop-n8n-client.php:203
 #, php-format
 msgid "n8n ha risposto con errore HTTP %1$d: %2$s"
-msgstr "n8n ha risposto con errore HTTP %1$d: %2$s"
+msgstr ""
 
 #. translators: %s: preview of the raw response body
 #: includes/class-q1-shop-n8n-client.php:219
 #, php-format
 msgid "Risposta n8n non è un JSON valido. Anteprima body: %s"
-msgstr "Risposta n8n non è un JSON valido. Anteprima body: %s"
+msgstr ""
 
 #: includes/class-q1-shop-n8n-client.php:244
 msgid "URL base n8n non configurato. Vai in AI SEO Assistant > Impostazioni."
-msgstr "URL base n8n non configurato. Vai in AI SEO Assistant > Impostazioni."
+msgstr ""
 
 #: includes/class-q1-shop-n8n-client.php:245
 msgid "Impossibile connettersi a n8n. Verifica che il servizio sia attivo e raggiungibile."
-msgstr "Impossibile connettersi a n8n. Verifica che il servizio sia attivo e raggiungibile."
+msgstr ""
 
 #: includes/class-q1-shop-n8n-client.php:246
 msgid "Il servizio n8n ha risposto con un errore. Controlla i log di n8n."
-msgstr "Il servizio n8n ha risposto con un errore. Controlla i log di n8n."
+msgstr ""
 
 #: includes/class-q1-shop-n8n-client.php:247
 msgid "Risposta n8n non valida. Verifica la configurazione del workflow."
-msgstr "Risposta n8n non valida. Verifica la configurazione del workflow."
+msgstr ""
 
 #: includes/class-q1-shop-n8n-client.php:251
 msgid "Errore sconosciuto. Riprova."
-msgstr "Errore sconosciuto. Riprova."
+msgstr ""
 
 #: includes/class-q1-shop-post-template.php:148
 #: includes/class-q1-shop-post-template.php:149
 #, php-format
 msgid "%d min read"
-msgstr "%d min di lettura"
+msgstr ""
 
 #. translators: 1: opening link tag, 2: closing link tag
 #: includes/class-q1-shop-seo-assistant.php:53
 #, php-format
 msgid "AI SEO Assistant: URL n8n non configurato. %1$sVai alle Impostazioni%2$s."
-msgstr "AI SEO Assistant: URL n8n non configurato. %1$sVai alle Impostazioni%2$s."
+msgstr ""
 
 #. translators: 1: opening link tag, 2: closing link tag
 #: includes/class-q1-shop-seo-assistant.php:66
 #, php-format
 msgid "AI SEO Assistant: Token webhook n8n non configurato. %1$sVai alle Impostazioni%2$s."
-msgstr "AI SEO Assistant: Token webhook n8n non configurato. %1$sVai alle Impostazioni%2$s."
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:79
 #: includes/class-q1-shop-seo-assistant.php:80
 msgid "AI SEO Assistant"
-msgstr "AI SEO Assistant"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:91
 #: includes/class-q1-shop-seo-assistant.php:92
@@ -158,7 +155,7 @@ msgstr "AI SEO Assistant"
 #: templates/admin/keyword-research-page.php:7
 #: templates/admin/settings-page.php:14
 msgid "Keyword Research"
-msgstr "Keyword Research"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:101
 #: includes/class-q1-shop-seo-assistant.php:102
@@ -166,331 +163,331 @@ msgstr "Keyword Research"
 #: templates/admin/seo-audit-page.php:8
 #: templates/admin/settings-page.php:26
 msgid "SEO Audit"
-msgstr "SEO Audit"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:111
 #: includes/class-q1-shop-seo-assistant.php:112
 msgid "Impostazioni"
-msgstr "Impostazioni"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:165
 #: templates/admin/keyword-research-page.php:36
 msgid "Cerca Keywords"
-msgstr "Cerca Keywords"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:166
 msgid "Ricerca in corso..."
-msgstr "Ricerca in corso..."
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:168
 msgid "Nessun risultato trovato."
-msgstr "Nessun risultato trovato."
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:169
 msgid "Esporta CSV"
-msgstr "Esporta CSV"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:170
 msgid "Crea bozza articolo"
-msgstr "Crea bozza articolo"
+msgstr ""
 
 #. translators: %s: keyword name
 #: includes/class-q1-shop-seo-assistant.php:172
 #, php-format
 msgid "Creare una bozza articolo per \"%s\"?"
-msgstr "Creare una bozza articolo per \"%s\"?"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:173
 msgid "Errore di connessione."
-msgstr "Errore di connessione."
+msgstr ""
 
 #. translators: %d: number of selected keywords
 #: includes/class-q1-shop-seo-assistant.php:175
 #, php-format
 msgid "%d keyword selezionate"
-msgstr "%d keyword selezionate"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:182
 #: templates/admin/seo-audit-page.php:37
 #: templates/metabox/seo-audit-metabox.php:12
 msgid "Analizza SEO"
-msgstr "Analizza SEO"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:183
 #: templates/admin/seo-audit-page.php:45
 msgid "Analisi in corso..."
-msgstr "Analisi in corso..."
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:184
 #: templates/admin/seo-audit-page.php:91
 #: templates/metabox/seo-audit-metabox.php:11
 msgid "Rianalizza"
-msgstr "Rianalizza"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:185
 msgid "Errore durante l'analisi."
-msgstr "Errore durante l'analisi."
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:186
 msgid "Vedi report completo"
-msgstr "Vedi report completo"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:187
 msgid "Nessun problema critico rilevato."
-msgstr "Nessun problema critico rilevato."
+msgstr ""
 
 #. translators: %d: number of additional warnings
 #: includes/class-q1-shop-seo-assistant.php:189
 #, php-format
 msgid "...e altri %d avvisi"
-msgstr "...e altri %d avvisi"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:190
 msgid "Suggerimento:"
-msgstr "Suggerimento:"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:191
 #: templates/admin/seo-audit-page.php:18
 msgid "-- Seleziona --"
-msgstr "-- Seleziona --"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:192
 msgid "Critici"
-msgstr "Critici"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:193
 msgid "Avvisi"
-msgstr "Avvisi"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:194
 msgid "Info"
-msgstr "Info"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:195
 msgid "OK"
-msgstr "OK"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:246
 msgid "Analisi SEO AI"
-msgstr "Analisi SEO AI"
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:289
 #: includes/class-q1-shop-seo-assistant.php:302
 #: includes/class-q1-shop-seo-assistant.php:315
 msgid "Pagina in costruzione."
-msgstr "Pagina in costruzione."
+msgstr ""
 
 #: includes/class-q1-shop-seo-assistant.php:314
 msgid "Impostazioni SEO"
-msgstr "Impostazioni SEO"
+msgstr ""
 
 #: includes/class-q1-shop-seo-audit.php:31
 msgid "ID articolo non valido."
-msgstr "ID articolo non valido."
+msgstr ""
 
 #: includes/class-q1-shop-seo-audit.php:39
 msgid "Analisi già in corso per questo contenuto. Attendi il completamento."
-msgstr "Analisi già in corso per questo contenuto. Attendi il completamento."
+msgstr ""
 
 #: includes/class-q1-shop-seo-audit.php:70
 msgid "Risposta non valida dal servizio audit SEO."
-msgstr "Risposta non valida dal servizio audit SEO."
+msgstr ""
 
 #. translators: %d: daily audit limit
 #: includes/class-q1-shop-seo-audit.php:167
 #, php-format
 msgid "Limite giornaliero di %d analisi raggiunto. Riprova domani."
-msgstr "Limite giornaliero di %d analisi raggiunto. Riprova domani."
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:28
 msgid "Configurazione Servizi"
-msgstr "Configurazione Servizi"
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:35
 msgid "URL base n8n"
-msgstr "URL base n8n"
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:41
 msgid "URL dell'istanza n8n (es. https://n8n.example.com)"
-msgstr "URL dell'istanza n8n (es. https://n8n.example.com)"
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:48
 msgid "Token Webhook n8n"
-msgstr "Token Webhook n8n"
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:54
 msgid "Token segreto per autenticazione webhook"
-msgstr "Token segreto per autenticazione webhook"
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:60
 msgid "Limite audit giornaliero"
-msgstr "Limite audit giornaliero"
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:69
 msgid "Numero massimo di analisi SEO al giorno"
-msgstr "Numero massimo di analisi SEO al giorno"
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:75
 msgid "Limite keyword research giornaliero"
-msgstr "Limite keyword research giornaliero"
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:84
 msgid "Numero massimo di ricerche keyword al giorno"
-msgstr "Numero massimo di ricerche keyword al giorno"
+msgstr ""
 
 #: includes/class-q1-shop-seo-settings.php:90
 msgid "Configura le credenziali per i servizi esterni utilizzati dal modulo SEO."
-msgstr "Configura le credenziali per i servizi esterni utilizzati dal modulo SEO."
+msgstr ""
 
 #: q1-shop-stripe-alert.php:96
 msgid "Payment Information"
-msgstr "Informazioni di Pagamento"
+msgstr ""
 
 #: q1-shop-stripe-alert.php:97
 msgid "All payments are securely processed through Stripe. Your payment information is encrypted and never stored on our servers."
-msgstr "Tutti i pagamenti vengono elaborati in modo sicuro tramite Stripe. Le tue informazioni di pagamento sono crittografate e non vengono mai memorizzate sui nostri server."
+msgstr ""
 
 #: templates/admin/keyword-research-page.php:8
 msgid "Trova le migliori parole chiave per i tuoi contenuti, basate su dati reali di ricerca Google e analisi AI."
-msgstr "Trova le migliori parole chiave per i tuoi contenuti, basate su dati reali di ricerca Google e analisi AI."
+msgstr ""
 
 #: templates/admin/keyword-research-page.php:14
 msgid "Parola chiave seed"
-msgstr "Parola chiave seed"
+msgstr ""
 
 #: templates/admin/keyword-research-page.php:18
 msgid "Es. aspirapolvere robot"
-msgstr "Es. aspirapolvere robot"
+msgstr ""
 
 #: templates/admin/keyword-research-page.php:19
 msgid "Inserisci una parola chiave o argomento da analizzare."
-msgstr "Inserisci una parola chiave o argomento da analizzare."
+msgstr ""
 
 #: templates/admin/keyword-research-page.php:23
 msgid "Contesto automatico"
-msgstr "Contesto automatico"
+msgstr ""
 
 #: templates/admin/keyword-research-page.php:27
 msgid "Suggerimento automatico da WooCommerce"
-msgstr "Suggerimento automatico da WooCommerce"
+msgstr ""
 
 #: templates/admin/keyword-research-page.php:29
 msgid "Se attivo, aggiunge contesto dal catalogo prodotti per risultati più pertinenti."
-msgstr "Se attivo, aggiunge contesto dal catalogo prodotti per risultati più pertinenti."
+msgstr ""
 
 #: templates/admin/keyword-research-page.php:45
 msgid "Ricerca in corso... Potrebbe richiedere fino a 30 secondi."
-msgstr "Ricerca in corso... Potrebbe richiedere fino a 30 secondi."
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:9
 msgid "Analizza la qualità SEO di un articolo o prodotto."
-msgstr "Analizza la qualità SEO di un articolo o prodotto."
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:14
 msgid "Cerca contenuto"
-msgstr "Cerca contenuto"
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:16
 msgid "Digita per cercare..."
-msgstr "Digita per cercare..."
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:52
 msgid "Ultimi audit effettuati"
-msgstr "Ultimi audit effettuati"
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:56
 msgid "Titolo"
-msgstr "Titolo"
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:57
 msgid "Tipo"
-msgstr "Tipo"
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:58
 msgid "Score"
-msgstr "Punteggio"
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:59
 #: templates/admin/settings-page.php:68
 msgid "Data"
-msgstr "Data"
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:60
 msgid "Azioni"
-msgstr "Azioni"
+msgstr ""
 
 #: templates/admin/seo-audit-page.php:75
 msgid "Nessun audit effettuato."
-msgstr "Nessun audit effettuato."
+msgstr ""
 
 #: templates/admin/settings-page.php:11
 msgid "Utilizzo odierno"
-msgstr "Utilizzo odierno"
+msgstr ""
 
 #: templates/admin/settings-page.php:18
 msgid "ricerche oggi"
-msgstr "ricerche oggi"
+msgstr ""
 
 #: templates/admin/settings-page.php:20
 #: templates/admin/settings-page.php:32
 msgid "Quasi al limite!"
-msgstr "Quasi al limite!"
+msgstr ""
 
 #: templates/admin/settings-page.php:22
 #: templates/admin/settings-page.php:34
 msgid "Limite raggiunto"
-msgstr "Limite raggiunto"
+msgstr ""
 
 #: templates/admin/settings-page.php:30
 msgid "analisi oggi"
-msgstr "analisi oggi"
+msgstr ""
 
 #: templates/admin/settings-page.php:38
 msgid "I contatori si resettano automaticamente a mezzanotte."
-msgstr "I contatori si resettano automaticamente a mezzanotte."
+msgstr ""
 
 #: templates/admin/settings-page.php:45
 msgid "Salva Impostazioni"
-msgstr "Salva Impostazioni"
+msgstr ""
 
 #: templates/admin/settings-page.php:50
 msgid "Test Connessione"
-msgstr "Test Connessione"
+msgstr ""
 
 #: templates/admin/settings-page.php:53
 msgid "Testa Connessione n8n"
-msgstr "Testa Connessione n8n"
+msgstr ""
 
 #: templates/admin/settings-page.php:60
 msgid "Log recenti"
-msgstr "Log recenti"
+msgstr ""
 
 #: templates/admin/settings-page.php:63
 msgid "Nessun log registrato."
-msgstr "Nessun log registrato."
+msgstr ""
 
 #: templates/admin/settings-page.php:69
 msgid "Livello"
-msgstr "Livello"
+msgstr ""
 
 #: templates/admin/settings-page.php:70
 msgid "Messaggio"
-msgstr "Messaggio"
+msgstr ""
 
 #: templates/admin/settings-page.php:108
 msgid "Errore sconosciuto."
-msgstr "Errore sconosciuto."
+msgstr ""
 
 #: templates/admin/settings-page.php:113
 msgid "Errore di rete."
-msgstr "Errore di rete."
+msgstr ""
 
 #: templates/metabox/seo-audit-metabox.php:19
 msgid "Analisi in corso... (fino a 30 sec)"
-msgstr "Analisi in corso... (fino a 30 sec)"
+msgstr ""
 
 #. translators: %s: audit timestamp
 #: templates/metabox/seo-audit-metabox.php:33
 #, php-format
 msgid "Ultimo audit: %s"
-msgstr "Ultimo audit: %s"
+msgstr ""

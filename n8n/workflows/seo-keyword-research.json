@@ -1,11 +1,5 @@
 {
-  "updatedAt": "2026-02-06T20:21:23.399Z",
-  "createdAt": "2026-02-06T00:11:16.972Z",
-  "id": "RSR0psjPx60gPjTG",
   "name": "SEO Keyword Research",
-  "description": null,
-  "active": false,
-  "isArchived": false,
   "nodes": [
     {
       "parameters": {
@@ -19,10 +13,7 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        256,
-        304
-      ],
+      "position": [256, 304],
       "webhookId": "c9324432-1069-482e-94ac-399c5860aa7e",
       "credentials": {
         "httpHeaderAuth": {
@@ -34,50 +25,35 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://googleads.googleapis.com/v19/customers/1012249072:generateKeywordIdeas",
+        "url": "https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live",
         "authentication": "genericCredentialType",
-        "genericAuthType": "oAuth2Api",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "developer-token",
-              "value": "0mn5_IJ-1masEmjWt7B8vQ"
-            }
-          ]
-        },
+        "genericAuthType": "httpBasicAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ keywordSeed: { keywords: [$json.body.keyword_seed] }, language: 'languageConstants/1004', geoTargetConstants: ['geoTargetConstants/2380'], keywordPlanNetwork: 'GOOGLE_SEARCH', includeAdultKeywords: false }) }}",
+        "jsonBody": "={{ JSON.stringify([{ keywords: [$json.body.keyword_seed], location_name: 'Italy', language_name: 'Italian', search_partners: false }]) }}",
         "options": {}
       },
-      "id": "google-ads-api",
-      "name": "Google Ads API",
+      "id": "dataforseo-api",
+      "name": "DataForSEO API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [
-        480,
-        304
-      ],
+      "position": [480, 304],
       "credentials": {
-        "oAuth2Api": {
-          "id": "toGbgrTi5LKN88Rj",
-          "name": "Unnamed credential"
+        "httpBasicAuth": {
+          "id": "REPLACE_WITH_DATAFORSEO_CREDENTIAL_ID",
+          "name": "DataForSEO API"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Parse Google Ads API response into structured keyword data\nconst input = $input.first().json;\nconst results = input.results || [];\nconst seedKeyword = $('Webhook Trigger').first().json.body.keyword_seed;\nconst context = $('Webhook Trigger').first().json.body.context || '';\n\nconst keywords = results.map(r => {\n  const metrics = r.keywordIdeaMetrics || {};\n  const monthlyVolumes = (metrics.monthlySearchVolumes || []).map(m => m.monthlySearches || 0);\n  \n  // Pad to 12 months if needed\n  while (monthlyVolumes.length < 12) monthlyVolumes.unshift(0);\n  \n  return {\n    term: r.text || '',\n    volume: parseInt(metrics.avgMonthlySearches) || 0,\n    competition: metrics.competition || 'UNSPECIFIED',\n    competition_index: parseInt(metrics.competitionIndex) || 0,\n    trend_12m: monthlyVolumes.slice(-12),\n    cpc: parseFloat(metrics.highTopOfPageBidMicros) / 1000000 || 0\n  };\n}).filter(k => k.volume > 0);\n\n// Sort by volume descending\nkeywords.sort((a, b) => b.volume - a.volume);\n\n// Take top 50\nconst topKeywords = keywords.slice(0, 50);\n\nreturn [{ json: { keywords: topKeywords, seed: seedKeyword, context: context } }];"
+        "jsCode": "// Parse DataForSEO API response into structured keyword data\nconst input = $input.first().json;\nconst seedKeyword = $('Webhook Trigger').first().json.body.keyword_seed;\nconst context = $('Webhook Trigger').first().json.body.context || '';\n\nconst tasks = input.tasks || [];\nconst task = tasks[0] || {};\n\nif (task.status_code !== 20000) {\n  return [{ json: { keywords: [], keywordsForAI: [], seed: seedKeyword, context: context, error: task.status_message || 'DataForSEO error' } }];\n}\n\nconst results = task.result || [];\n\nconst keywords = results.map(r => {\n  const monthlySearches = r.monthly_searches || [];\n  const sorted = monthlySearches\n    .sort((a, b) => (a.year * 100 + a.month) - (b.year * 100 + b.month))\n    .slice(-12);\n  const trend_12m = sorted.map(m => m.search_volume || 0);\n  while (trend_12m.length < 12) trend_12m.unshift(0);\n\n  return {\n    term: r.keyword || '',\n    volume: r.search_volume || 0,\n    competition: (r.competition || 'UNSPECIFIED').toUpperCase(),\n    competition_index: r.competition_index || 0,\n    trend_12m: trend_12m,\n    cpc: r.cpc || 0\n  };\n}).filter(k => k.volume > 0);\n\nkeywords.sort((a, b) => b.volume - a.volume);\n\nconst allKeywords = keywords.slice(0, 50);\n// Send only top 25 to AI to stay within token limits\nconst keywordsForAI = allKeywords.slice(0, 25);\n\nreturn [{ json: { keywords: allKeywords, keywordsForAI: keywordsForAI, seed: seedKeyword, context: context } }];"
       },
       "id": "parse-data",
-      "name": "Parse Google Ads Data",
+      "name": "Parse Keyword Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        704,
-        304
-      ]
+      "position": [704, 304]
     },
     {
       "parameters": {
@@ -93,12 +69,12 @@
               "role": "system"
             },
             {
-              "content": "={{ 'Analizza queste keyword per il mercato italiano.\\n\\nKeyword seed: ' + $json.seed + '\\nContesto sito: ' + $json.context + '\\n\\nKeyword con dati Google Ads:\\n' + JSON.stringify($json.keywords, null, 2) + '\\n\\nPer ogni keyword:\\n1. Classifica l\\'intento di ricerca: \"informazionale\", \"transazionale\" o \"navigazionale\"\\n2. Scrivi un breve commento (max 1 frase) sulla qualità/pertinenza della keyword per un blog e-commerce italiano\\n3. Suggerisci fino a 5 keyword long-tail aggiuntive non presenti nella lista, con intento e commento\\n\\nRispondi SOLO con JSON valido nel formato:\\n{\\n  \"analyzed_keywords\": [{\"term\": \"...\", \"intent\": \"...\", \"ai_comment\": \"...\"}],\\n  \"additional_keywords\": [{\"term\": \"...\", \"volume\": 0, \"competition\": \"UNKNOWN\", \"competition_index\": 0, \"trend_12m\": [], \"cpc\": 0, \"intent\": \"...\", \"ai_comment\": \"...\"}]\\n}' }}"
+              "content": "={{ 'Analizza queste keyword per il mercato italiano.\\n\\nKeyword seed: ' + $json.seed + '\\nContesto sito: ' + $json.context + '\\n\\nKeyword con dati (top 25 per volume):\\n' + JSON.stringify($json.keywordsForAI, null, 2) + '\\n\\nPer ogni keyword:\\n1. Classifica l\\'intento di ricerca: \"informazionale\", \"transazionale\" o \"navigazionale\"\\n2. Scrivi un breve commento (max 1 frase) sulla qualità/pertinenza della keyword per un blog e-commerce italiano\\n3. Suggerisci fino a 5 keyword long-tail aggiuntive non presenti nella lista, con intento e commento\\n\\nRispondi SOLO con JSON valido nel formato:\\n{\\n  \"analyzed_keywords\": [{\"term\": \"...\", \"intent\": \"...\", \"ai_comment\": \"...\"}],\\n  \"additional_keywords\": [{\"term\": \"...\", \"volume\": 0, \"competition\": \"UNKNOWN\", \"competition_index\": 0, \"trend_12m\": [], \"cpc\": 0, \"intent\": \"...\", \"ai_comment\": \"...\"}]\\n}' }}"
             }
           ]
         },
         "options": {
-          "maxTokens": 2000,
+          "maxTokens": 4096,
           "temperature": 0.3
         }
       },
@@ -106,10 +82,7 @@
       "name": "AI Keyword Analysis",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1,
-      "position": [
-        928,
-        304
-      ],
+      "position": [928, 304],
       "credentials": {
         "openAiApi": {
           "id": "REPLACE_WITH_OPENAI_CREDENTIAL_ID",
@@ -119,16 +92,13 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge Google Ads data with AI analysis\nconst googleData = $('Parse Google Ads Data').first().json;\nconst aiResponseRaw = $input.first().json.message?.content || $input.first().json.text || '{}';\n\nlet aiData;\ntry {\n  // Extract JSON from AI response (handle markdown code blocks)\n  const jsonMatch = aiResponseRaw.match(/```json?\\n?([\\s\\S]*?)\\n?```/) || [null, aiResponseRaw];\n  aiData = JSON.parse(jsonMatch[1]);\n} catch (e) {\n  aiData = { analyzed_keywords: [], additional_keywords: [] };\n}\n\n// Merge AI analysis into Google data\nconst enrichedKeywords = googleData.keywords.map(kw => {\n  const aiInfo = (aiData.analyzed_keywords || []).find(a => \n    a.term.toLowerCase() === kw.term.toLowerCase()\n  );\n  return {\n    ...kw,\n    intent: aiInfo?.intent || 'informazionale',\n    ai_comment: aiInfo?.ai_comment || ''\n  };\n});\n\n// Add AI-suggested keywords\nconst additionalKeywords = (aiData.additional_keywords || []).map(kw => ({\n  term: kw.term,\n  volume: kw.volume || 0,\n  competition: kw.competition || 'UNKNOWN',\n  competition_index: kw.competition_index || 0,\n  trend_12m: kw.trend_12m || [],\n  cpc: kw.cpc || 0,\n  intent: kw.intent || 'informazionale',\n  ai_comment: kw.ai_comment || 'Suggerita dall\\'AI'\n}));\n\nconst allKeywords = [...enrichedKeywords, ...additionalKeywords];\n\nreturn [{\n  json: {\n    success: true,\n    keywords: allKeywords,\n    meta: {\n      seed: googleData.seed,\n      total_results: allKeywords.length,\n      timestamp: new Date().toISOString()\n    }\n  }\n}];"
+        "jsCode": "// Merge keyword data with AI analysis\nconst kwData = $('Parse Keyword Data').first().json;\nconst raw = $input.first().json;\n\n// Try multiple output formats from different n8n OpenAI node versions\nlet aiResponseRaw = '';\nif (typeof raw === 'string') {\n  aiResponseRaw = raw;\n} else if (raw.message?.content) {\n  aiResponseRaw = raw.message.content;\n} else if (raw.text) {\n  aiResponseRaw = raw.text;\n} else if (raw.output) {\n  aiResponseRaw = raw.output;\n} else if (raw.content) {\n  aiResponseRaw = raw.content;\n} else if (Array.isArray(raw) && raw[0]?.message?.content) {\n  aiResponseRaw = raw[0].message.content;\n} else if (raw.choices?.[0]?.message?.content) {\n  aiResponseRaw = raw.choices[0].message.content;\n} else {\n  // Last resort: stringify and try to find JSON inside\n  aiResponseRaw = JSON.stringify(raw);\n}\n\nlet aiData;\ntry {\n  const jsonMatch = aiResponseRaw.match(/```json?\\n?([\\s\\S]*?)\\n?```/) || [null, aiResponseRaw];\n  aiData = JSON.parse(jsonMatch[1]);\n} catch (e) {\n  // Try parsing the raw string directly\n  try {\n    aiData = JSON.parse(aiResponseRaw);\n  } catch (e2) {\n    aiData = { analyzed_keywords: [], additional_keywords: [] };\n  }\n}\n\n// Merge AI analysis into keyword data\nconst enrichedKeywords = kwData.keywords.map(kw => {\n  const aiInfo = (aiData.analyzed_keywords || []).find(a =>\n    a.term.toLowerCase() === kw.term.toLowerCase()\n  );\n  return {\n    ...kw,\n    intent: aiInfo?.intent || 'informazionale',\n    ai_comment: aiInfo?.ai_comment || ''\n  };\n});\n\n// Add AI-suggested keywords\nconst additionalKeywords = (aiData.additional_keywords || []).map(kw => ({\n  term: kw.term,\n  volume: kw.volume || 0,\n  competition: kw.competition || 'UNKNOWN',\n  competition_index: kw.competition_index || 0,\n  trend_12m: kw.trend_12m || [],\n  cpc: kw.cpc || 0,\n  intent: kw.intent || 'informazionale',\n  ai_comment: kw.ai_comment || 'Suggerita dall\\'AI'\n}));\n\nconst allKeywords = [...enrichedKeywords, ...additionalKeywords];\n\nreturn [{\n  json: {\n    success: true,\n    keywords: allKeywords,\n    meta: {\n      seed: kwData.seed,\n      total_results: allKeywords.length,\n      timestamp: new Date().toISOString()\n    }\n  }\n}];"
       },
       "id": "merge-results",
       "name": "Merge Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1280,
-        304
-      ]
+      "position": [1280, 304]
     },
     {
       "parameters": {
@@ -140,142 +110,27 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        1504,
-        304
-      ]
+      "position": [1504, 304]
     }
   ],
   "connections": {
     "Webhook Trigger": {
-      "main": [
-        [
-          {
-            "node": "Google Ads API",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "DataForSEO API", "type": "main", "index": 0 }]]
     },
-    "Google Ads API": {
-      "main": [
-        [
-          {
-            "node": "Parse Google Ads Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "DataForSEO API": {
+      "main": [[{ "node": "Parse Keyword Data", "type": "main", "index": 0 }]]
     },
-    "Parse Google Ads Data": {
-      "main": [
-        [
-          {
-            "node": "AI Keyword Analysis",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Parse Keyword Data": {
+      "main": [[{ "node": "AI Keyword Analysis", "type": "main", "index": 0 }]]
     },
     "AI Keyword Analysis": {
-      "main": [
-        [
-          {
-            "node": "Merge Results",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]]
     },
     "Merge Results": {
-      "main": [
-        [
-          {
-            "node": "Respond to Webhook",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Respond to Webhook": {
-      "main": [
-        []
-      ]
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false
-  },
-  "staticData": null,
-  "meta": {
-    "templateCredsSetupCompleted": true
-  },
-  "pinData": {},
-  "versionId": "6b6f1b4b-029a-46cd-a8a5-2518e443e505",
-  "activeVersionId": null,
-  "versionCounter": 17,
-  "triggerCount": 0,
-  "shared": [
-    {
-      "updatedAt": "2026-02-06T00:11:16.975Z",
-      "createdAt": "2026-02-06T00:11:16.975Z",
-      "role": "workflow:owner",
-      "workflowId": "RSR0psjPx60gPjTG",
-      "projectId": "lVd1VtX5kCyGsdRU",
-      "project": {
-        "updatedAt": "2025-12-11T15:28:34.265Z",
-        "createdAt": "2025-12-06T08:29:19.886Z",
-        "id": "lVd1VtX5kCyGsdRU",
-        "name": "Andrea Marrano <andrea.marrano92@gmail.com>",
-        "type": "personal",
-        "icon": null,
-        "description": null,
-        "creatorId": "025b2fdc-0769-4611-a3a9-f3379d6b0c50",
-        "projectRelations": [
-          {
-            "updatedAt": "2025-12-06T08:29:19.887Z",
-            "createdAt": "2025-12-06T08:29:19.887Z",
-            "userId": "025b2fdc-0769-4611-a3a9-f3379d6b0c50",
-            "projectId": "lVd1VtX5kCyGsdRU",
-            "user": {
-              "updatedAt": "2026-02-05T23:54:33.000Z",
-              "createdAt": "2025-12-06T08:29:19.027Z",
-              "id": "025b2fdc-0769-4611-a3a9-f3379d6b0c50",
-              "email": "andrea.marrano92@gmail.com",
-              "firstName": "Andrea",
-              "lastName": "Marrano",
-              "personalizationAnswers": {
-                "version": "v4",
-                "personalization_survey_submitted_at": "2025-12-11T15:28:38.063Z",
-                "personalization_survey_n8n_version": "1.122.5"
-              },
-              "settings": {
-                "userActivated": true,
-                "easyAIWorkflowOnboarded": true,
-                "firstSuccessfulWorkflowId": "wzNBwocIe8cGsTxK",
-                "userActivatedAt": 1767367534962,
-                "npsSurvey": {
-                  "responded": true,
-                  "lastShownAt": 1770210149774
-                }
-              },
-              "disabled": false,
-              "mfaEnabled": false,
-              "lastActiveAt": "2026-02-05",
-              "isPending": false
-            }
-          }
-        ]
-      }
-    }
-  ],
-  "tags": [],
-  "activeVersion": null
+    "executionOrder": "v1"
+  }
 }

@@ -5,6 +5,39 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 <div class="wrap">
 	<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+
+	<?php $stats = Q1_Shop_SEO_Settings::get_usage_stats(); ?>
+	<div class="q1-seo-budget-widget">
+		<h2><?php esc_html_e( 'Utilizzo odierno', 'q1-shop-stripe-alert' ); ?></h2>
+		<div class="q1-seo-budget-grid">
+			<div class="q1-budget-card">
+				<span class="q1-budget-label"><?php esc_html_e( 'Keyword Research', 'q1-shop-stripe-alert' ); ?></span>
+				<span class="q1-budget-value <?php echo esc_attr( $stats['keyword_today'] >= $stats['keyword_limit'] * 0.8 ? 'q1-budget-warning' : '' ); ?>">
+					<?php echo esc_html( $stats['keyword_today'] . ' / ' . $stats['keyword_limit'] ); ?>
+				</span>
+				<span class="q1-budget-sublabel"><?php esc_html_e( 'ricerche oggi', 'q1-shop-stripe-alert' ); ?></span>
+				<?php if ( $stats['keyword_today'] >= $stats['keyword_limit'] * 0.8 && $stats['keyword_today'] < $stats['keyword_limit'] ) : ?>
+					<span class="q1-budget-alert"><?php esc_html_e( 'Quasi al limite!', 'q1-shop-stripe-alert' ); ?></span>
+				<?php elseif ( $stats['keyword_today'] >= $stats['keyword_limit'] ) : ?>
+					<span class="q1-budget-alert q1-budget-exceeded"><?php esc_html_e( 'Limite raggiunto', 'q1-shop-stripe-alert' ); ?></span>
+				<?php endif; ?>
+			</div>
+			<div class="q1-budget-card">
+				<span class="q1-budget-label"><?php esc_html_e( 'SEO Audit', 'q1-shop-stripe-alert' ); ?></span>
+				<span class="q1-budget-value <?php echo esc_attr( $stats['audit_today'] >= $stats['audit_limit'] * 0.8 ? 'q1-budget-warning' : '' ); ?>">
+					<?php echo esc_html( $stats['audit_today'] . ' / ' . $stats['audit_limit'] ); ?>
+				</span>
+				<span class="q1-budget-sublabel"><?php esc_html_e( 'analisi oggi', 'q1-shop-stripe-alert' ); ?></span>
+				<?php if ( $stats['audit_today'] >= $stats['audit_limit'] * 0.8 && $stats['audit_today'] < $stats['audit_limit'] ) : ?>
+					<span class="q1-budget-alert"><?php esc_html_e( 'Quasi al limite!', 'q1-shop-stripe-alert' ); ?></span>
+				<?php elseif ( $stats['audit_today'] >= $stats['audit_limit'] ) : ?>
+					<span class="q1-budget-alert q1-budget-exceeded"><?php esc_html_e( 'Limite raggiunto', 'q1-shop-stripe-alert' ); ?></span>
+				<?php endif; ?>
+			</div>
+		</div>
+		<p class="description"><?php esc_html_e( 'I contatori si resettano automaticamente a mezzanotte.', 'q1-shop-stripe-alert' ); ?></p>
+	</div>
+
 	<form method="post" action="options.php">
 		<?php
 		settings_fields( Q1_Shop_SEO_Settings::OPTION_GROUP );
@@ -22,6 +55,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<span class="spinner" id="q1-seo-test-spinner" style="float:none;"></span>
 	</p>
 	<div id="q1-seo-test-result"></div>
+
+	<hr>
+	<h2><?php esc_html_e( 'Log recenti', 'q1-shop-stripe-alert' ); ?></h2>
+	<?php $log_entries = Q1_Shop_SEO_Logger::get_recent_entries( 20 ); ?>
+	<?php if ( empty( $log_entries ) ) : ?>
+		<p class="description"><?php esc_html_e( 'Nessun log registrato.', 'q1-shop-stripe-alert' ); ?></p>
+	<?php else : ?>
+		<table class="wp-list-table widefat fixed striped">
+			<thead>
+				<tr>
+					<th style="width:160px;"><?php esc_html_e( 'Data', 'q1-shop-stripe-alert' ); ?></th>
+					<th style="width:80px;"><?php esc_html_e( 'Livello', 'q1-shop-stripe-alert' ); ?></th>
+					<th><?php esc_html_e( 'Messaggio', 'q1-shop-stripe-alert' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php foreach ( $log_entries as $entry ) : ?>
+					<tr class="q1-log-<?php echo esc_attr( strtolower( $entry['level'] ) ); ?>">
+						<td><?php echo esc_html( $entry['timestamp'] ); ?></td>
+						<td><strong><?php echo esc_html( $entry['level'] ); ?></strong></td>
+						<td><?php echo esc_html( $entry['message'] ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+	<?php endif; ?>
 
 	<script>
 	(function() {

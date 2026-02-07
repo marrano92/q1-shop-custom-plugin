@@ -1,0 +1,46 @@
+{
+  "name": "SEO Test Connection",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "seo-test",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "d3b5a1c7-6e2f-4890-a4d1-f8c3b9e5d7a2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "NZcE8PYjuCxc0c1R",
+          "name": "Header Auth account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, message: 'Connessione OK', timestamp: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [470, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

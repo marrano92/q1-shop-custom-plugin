@@ -1,0 +1,111 @@
+{
+  "name": "SEO Audit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "seo-audit",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "a7e1f3b2-8d4c-4a1e-b5f6-9c2d7e8a0b3f",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "NZcE8PYjuCxc0c1R",
+          "name": "Header Auth account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare the SEO audit prompt with article data\nconst data = $input.first().json.body;\n\nconst prompt = `Sei un consulente SEO esperto specializzato nel mercato italiano. Analizza il seguente articolo e produci un audit SEO dettagliato.\n\n## Dati Articolo\n- **Titolo**: ${data.title} (${data.title.length} caratteri)\n- **Slug URL**: /${data.slug}/\n- **Meta Description**: ${data.meta_description || 'NON PRESENTE'} (${(data.meta_description || '').length} caratteri)\n- **Keyword Focus**: ${data.keyword_focus || 'NON DEFINITA'}\n- **Categorie**: ${(data.categories || []).join(', ')}\n- **Tag**: ${(data.tags || []).join(', ')}\n- **Conteggio parole**: ${data.word_count}\n- **Struttura headings**: H2: ${data.headings?.h2 || 0}, H3: ${data.headings?.h3 || 0}, H4: ${data.headings?.h4 || 0}\n- **Paragrafi**: ${data.paragraphs || 0}\n- **Immagini**: ${(data.images || []).length} (con alt: ${(data.images || []).filter(i => i.alt).length}, senza alt: ${(data.images || []).filter(i => !i.alt).length})\n- **Link interni**: ${(data.internal_links || []).length}\n- **Link esterni**: ${(data.external_links || []).length}\n\n## Contenuto (primi 3000 caratteri)\n${(data.content_text || '').substring(0, 3000)}\n\n## Istruzioni\nAnalizza l'articolo seguendo questi criteri SEO:\n1. **Keyword Usage**: La keyword focus è presente nel titolo, nella meta description, nei sottotitoli H2, nel primo paragrafo, e distribuita nel testo?\n2. **Title Tag**: Lunghezza appropriata (50-60 caratteri)? Contiene la keyword? È accattivante?\n3. **Meta Description**: Presente? Lunghezza tra 120-155 caratteri? Contiene la keyword? Invita al click?\n4. **Struttura Contenuti**: Uso appropriato di H2/H3? Paragrafi non troppo lunghi? Elenchi puntati dove utile?\n5. **Immagini**: Tutte con alt text? Alt text descrittivo e con keyword?\n6. **Link Interni**: Almeno 3-5 link interni? Collegati a contenuti correlati?\n7. **Link Esterni**: Presente almeno 1 link a fonte autorevole?\n8. **Lunghezza Contenuto**: Adeguata per il topic? (min 600 parole per articoli informativi)\n9. **Slug URL**: Breve, descrittivo, contiene la keyword?\n10. **Aspetti Tecnici**: Densità keyword, leggibilità, formattazione.\n\nRispondi ESCLUSIVAMENTE con JSON valido (senza markdown code blocks) nel formato:\n{\n  \"score\": <numero 0-100>,\n  \"recommendations\": [\n    {\n      \"severity\": \"critical|warning|info|success\",\n      \"category\": \"keyword|meta|struttura|immagini|link|tecnico\",\n      \"title\": \"Titolo breve del punto\",\n      \"message\": \"Spiegazione dettagliata del problema o punto positivo\",\n      \"suggestion\": \"Suggerimento concreto per migliorare (vuoto se severity=success)\"\n    }\n  ]\n}\n\nRegole:\n- Genera tra 5 e 12 raccomandazioni\n- Includi almeno 1-2 \"success\" per evidenziare punti forti\n- I suggerimenti devono essere specifici e azionabili (non generici)\n- Scrivi tutto in italiano\n- Lo score deve riflettere la qualità complessiva (0=pessimo, 100=perfetto)`;\n\nreturn [{ json: { prompt, originalData: data } }];"
+      },
+      "id": "prepare-prompt",
+      "name": "Prepare Audit Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Sei un esperto SEO italiano. Rispondi SOLO con JSON valido, senza markdown, senza testo aggiuntivo.",
+              "role": "system"
+            },
+            {
+              "content": "={{ $json.prompt }}",
+              "role": "user"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 3000
+        }
+      },
+      "id": "ai-audit",
+      "name": "AI SEO Audit",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [690, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_WITH_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and validate AI response\nconst originalData = $('Prepare Audit Prompt').first().json.originalData;\nconst raw = $input.first().json;\n\n// Try multiple output formats from different n8n OpenAI node versions\nlet aiResponseRaw = '';\nif (typeof raw === 'string') {\n  aiResponseRaw = raw;\n} else if (raw.message?.content) {\n  aiResponseRaw = raw.message.content;\n} else if (raw.text) {\n  aiResponseRaw = raw.text;\n} else if (raw.output) {\n  aiResponseRaw = raw.output;\n} else if (raw.content) {\n  aiResponseRaw = raw.content;\n} else if (Array.isArray(raw) && raw[0]?.message?.content) {\n  aiResponseRaw = raw[0].message.content;\n} else if (raw.choices?.[0]?.message?.content) {\n  aiResponseRaw = raw.choices[0].message.content;\n} else {\n  aiResponseRaw = JSON.stringify(raw);\n}\n\nlet auditResult;\ntry {\n  // Handle potential markdown code blocks in response\n  const jsonMatch = aiResponseRaw.match(/```json?\\n?([\\s\\S]*?)\\n?```/) || [null, aiResponseRaw];\n  auditResult = JSON.parse(jsonMatch[1].trim());\n} catch (e) {\n  // Fallback: generic error response\n  auditResult = {\n    score: 0,\n    recommendations: [{\n      severity: 'critical',\n      category: 'tecnico',\n      title: 'Errore analisi AI',\n      message: 'Non è stato possibile completare l\\'analisi SEO automatica. Riprova tra qualche minuto.',\n      suggestion: 'Se il problema persiste, verifica la configurazione del provider AI.'\n    }]\n  };\n}\n\n// Validate and clamp score\nconst score = Math.max(0, Math.min(100, parseInt(auditResult.score) || 0));\n\n// Validate recommendations\nconst validSeverities = ['critical', 'warning', 'info', 'success'];\nconst validCategories = ['keyword', 'meta', 'struttura', 'immagini', 'link', 'tecnico'];\n\nconst recommendations = (auditResult.recommendations || []).map(r => ({\n  severity: validSeverities.includes(r.severity) ? r.severity : 'info',\n  category: validCategories.includes(r.category) ? r.category : 'tecnico',\n  title: (r.title || '').substring(0, 200),\n  message: (r.message || '').substring(0, 1000),\n  suggestion: (r.suggestion || '').substring(0, 1000)\n}));\n\nreturn [{\n  json: {\n    success: true,\n    score: score,\n    recommendations: recommendations,\n    meta: {\n      post_title: originalData.title,\n      word_count: originalData.word_count,\n      timestamp: new Date().toISOString()\n    }\n  }\n}];"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1130, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Prepare Audit Prompt", "type": "main", "index": 0 }]]
+    },
+    "Prepare Audit Prompt": {
+      "main": [[{ "node": "AI SEO Audit", "type": "main", "index": 0 }]]
+    },
+    "AI SEO Audit": {
+      "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]]
+    },
+    "Format Response": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
