@@ -11,6 +11,7 @@ class Q1_Shop_N8n_Client {
 
 	const ENDPOINT_KEYWORD_RESEARCH = '/webhook/seo-keyword-research';
 	const ENDPOINT_SEO_AUDIT        = '/webhook/seo-audit';
+	const ENDPOINT_CONTENT_IDEAS    = '/webhook/seo-content-ideas';
 	const ENDPOINT_TEST             = '/webhook/seo-test';
 
 	/**
@@ -56,6 +57,16 @@ class Q1_Shop_N8n_Client {
 	 */
 	public function send_audit_request( $payload ) {
 		return $this->post( self::ENDPOINT_SEO_AUDIT, $payload );
+	}
+
+	/**
+	 * Send content ideas request to n8n workflow.
+	 *
+	 * @param array $payload {context, language, location}.
+	 * @return array|WP_Error
+	 */
+	public function send_content_ideas_request( $payload ) {
+		return $this->post( self::ENDPOINT_CONTENT_IDEAS, $payload );
 	}
 
 	/**
@@ -143,7 +154,11 @@ class Q1_Shop_N8n_Client {
 		}
 
 		$url             = rtrim( $this->base_url, '/' ) . $endpoint;
-		$attempt_timeout = min( $this->timeout, self::ATTEMPT_TIMEOUT );
+		// Respect custom timeout for long-running workflows (e.g. content ideas).
+		// Use reduced per-attempt timeout only when timeout is at default.
+		$attempt_timeout = ( $this->timeout !== self::DEFAULT_TIMEOUT )
+			? $this->timeout
+			: self::ATTEMPT_TIMEOUT;
 		$start_time      = microtime( true );
 
 		$args = array(

@@ -51,6 +51,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-content-collect
 // Load SEO Audit service (after n8n client + content collector)
 require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-seo-audit.php';
 
+// Load Content Ideas service (after n8n client + wc context)
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-content-ideas.php';
+
 // Load SEO Assistant class
 require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-seo-assistant.php';
 
@@ -122,6 +125,7 @@ new Q1_Shop_Post_Template(__FILE__);
 new Q1_Shop_SEO_Settings();
 new Q1_Shop_Keyword_Research();
 new Q1_Shop_SEO_Audit();
+new Q1_Shop_Content_Ideas();
 new Q1_Shop_SEO_Assistant(__FILE__);
 
 add_filter('woocommerce_loop_add_to_cart_link', function($html, $product){

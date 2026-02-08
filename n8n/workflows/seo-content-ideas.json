@@ -1,0 +1,728 @@
+{
+  "updatedAt": "2026-02-07T13:04:21.464Z",
+  "createdAt": "2026-02-07T12:48:13.218Z",
+  "id": "QKY630kLCvOBEVil",
+  "name": "SEO Content Ideas",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "seo-content-ideas",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        256,
+        304
+      ],
+      "webhookId": "REPLACE_WITH_WEBHOOK_ID",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "NZcE8PYjuCxc0c1R",
+          "name": "Header Auth account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ 'Sei un esperto SEO italiano. Dato il seguente contesto di un sito e-commerce, genera 5-8 query Google informazionali in italiano che potenziali clienti cercherebbero.\\n\\nContesto sito:\\n' + $json.body.context + '\\n\\nRispondi SOLO con un JSON valido: {\"queries\": [\"query1\", \"query2\", ...]}' }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 500,
+          "temperature": 0.7
+        }
+      },
+      "id": "ai-generate-queries",
+      "name": "AI: Genera Query di Ricerca",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        480,
+        304
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "LPQYv0QHDkUNWVI7",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response to extract queries\nconst aiResponse = $input.first().json;\nlet text = aiResponse.message?.content || aiResponse.text || JSON.stringify(aiResponse);\n\n// Try to extract JSON from the response\nconst jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\nlet queries = [];\n\nif (jsonMatch) {\n  try {\n    const parsed = JSON.parse(jsonMatch[0]);\n    queries = parsed.queries || [];\n  } catch(e) {\n    // Fallback: split by newlines\n    queries = text.split('\\n').filter(q => q.trim().length > 3).slice(0, 8);\n  }\n}\n\nconst context = $('Webhook Trigger').first().json.body.context || '';\n\nreturn queries.map(q => ({ json: { query: q, context: context } }));"
+      },
+      "id": "parse-queries",
+      "name": "Parse Query AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.dataforseo.com/v3/serp/google/organic/live",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ keyword: $json.query, location_name: 'Italy', language_name: 'Italian', depth: 10 }]) }}",
+        "options": {}
+      },
+      "id": "dataforseo-serp",
+      "name": "DataForSEO SERP API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1056,
+        304
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "REPLACE_WITH_DATAFORSEO_CREDENTIAL_ID",
+          "name": "DataForSEO API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all SERP results, deduplicate by domain, extract candidate keywords\nconst allItems = $input.all();\nconst seenDomains = new Set();\nconst articles = [];\nconst queriesUsed = [];\n\nfor (const item of allItems) {\n  const tasks = item.json.tasks || [];\n  for (const task of tasks) {\n    if (task.data?.keyword) queriesUsed.push(task.data.keyword);\n    const results = task.result || [];\n    for (const resultSet of results) {\n      const items_arr = resultSet.items || [];\n      for (const r of items_arr) {\n        if (r.type !== 'organic') continue;\n        const domain = r.domain || '';\n        if (seenDomains.has(domain)) continue;\n        seenDomains.add(domain);\n        articles.push({\n          url: r.url || '',\n          title: r.title || '',\n          description: r.description || '',\n          position: r.rank_absolute || 0,\n          domain: domain\n        });\n      }\n    }\n  }\n}\n\n// Take top 20 most relevant\narticles.sort((a, b) => a.position - b.position);\nconst topArticles = articles.slice(0, 20);\n\n// Extract candidate keywords from titles\nconst stopWords = new Set(['il','lo','la','i','gli','le','un','una','di','del','dello','della','dei','degli','delle','a','al','allo','alla','ai','agli','alle','da','dal','dallo','dalla','dai','dagli','dalle','in','nel','nello','nella','nei','negli','nelle','con','su','sul','sullo','sulla','sui','sugli','sulle','per','tra','fra','e','o','ma','che','come','quando','se','non','più','molto','anche','sono','è','ha','ho','hanno','essere','avere']);\n\nconst keywordCandidates = [];\nfor (const article of topArticles) {\n  const words = article.title.toLowerCase()\n    .replace(/[^a-zàèéìòù0-9\\s]/gi, '')\n    .split(/\\s+/)\n    .filter(w => w.length > 2 && !stopWords.has(w));\n  \n  // 2-3 word combinations\n  for (let i = 0; i < words.length - 1; i++) {\n    keywordCandidates.push(words[i] + ' ' + words[i+1]);\n    if (i < words.length - 2) {\n      keywordCandidates.push(words[i] + ' ' + words[i+1] + ' ' + words[i+2]);\n    }\n  }\n}\n\n// Deduplicate and take top 15\nconst uniqueKws = [...new Set(keywordCandidates)].slice(0, 15);\n\nconst context = $('Webhook Trigger').first().json.body.context || '';\n\nreturn [{ json: {\n  articles: topArticles,\n  candidateKeywords: uniqueKws,\n  queriesUsed: queriesUsed,\n  context: context\n} }];"
+      },
+      "id": "collect-deduplicate",
+      "name": "Raccogli e Deduplica",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ keywords: $json.candidateKeywords.slice(0, 15), location_name: 'Italy', language_name: 'Italian', search_partners: false }]) }}",
+        "options": {}
+      },
+      "id": "dataforseo-keywords",
+      "name": "DataForSEO Keywords API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1504,
+        304
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "REPLACE_WITH_DATAFORSEO_CREDENTIAL_ID",
+          "name": "DataForSEO API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse keyword data and merge with SERP data\nconst keywordResponse = $input.first().json;\nconst prevData = $('Raccogli e Deduplica').first().json;\n\nconst tasks = keywordResponse.tasks || [];\nconst task = tasks[0] || {};\nconst results = task.result || [];\n\nconst keywordData = {};\nfor (const r of results) {\n  keywordData[r.keyword] = {\n    volume: r.search_volume || 0,\n    competition: r.competition || 'UNSPECIFIED',\n    cpc: r.cpc || 0,\n    competition_index: r.competition_index || 0\n  };\n}\n\nreturn [{ json: {\n  articles: prevData.articles,\n  keywordData: keywordData,\n  queriesUsed: prevData.queriesUsed,\n  context: prevData.context\n} }];"
+      },
+      "id": "merge-keyword-data",
+      "name": "Merge Keyword Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ 'Sei un content strategist SEO esperto in italiano. Analizza i dati seguenti e genera 8-12 idee di articoli originali.\\n\\n## Contesto sito\\n' + $json.context + '\\n\\n## Articoli competitor (titoli e snippet)\\n' + $json.articles.map(a => '- ' + a.title + ': ' + a.description).join('\\n') + '\\n\\n## Dati keyword (volume, competizione)\\n' + JSON.stringify($json.keywordData) + '\\n\\nGenera idee che:\\n- Si differenzino dai competitor\\n- Targetizzino keyword con volume reale\\n- Siano pertinenti alla nicchia del sito\\n\\nRispondi SOLO con JSON valido:\\n{\\n  \"ideas\": [{\\n    \"title\": \"...\",\\n    \"subtitle\": \"...\",\\n    \"description\": \"Breve descrizione del contenuto proposto\",\\n    \"target_keywords\": [\"kw1\", \"kw2\"],\\n    \"primary_keyword\": \"kw1\",\\n    \"estimated_volume\": 1200,\\n    \"difficulty\": \"bassa|media|alta\",\\n    \"content_type\": \"guida|listicle|recensione|confronto|tutorial|case-study\",\\n    \"priority\": 1\\n  }],\\n  \"strategy_notes\": \"Nota strategica sulla direzione editoriale...\"\\n}' }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 3000,
+          "temperature": 0.7
+        }
+      },
+      "id": "ai-generate-ideas",
+      "name": "AI: Genera Idee Articoli",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        1952,
+        304
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "LPQYv0QHDkUNWVI7",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI ideas response and format final output\nconst aiResponse = $input.first().json;\nconst prevData = $('Merge Keyword Data').first().json;\n\nlet text = aiResponse.message?.content || aiResponse.text || JSON.stringify(aiResponse);\n\n// Extract JSON from response\nconst jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\nlet ideas = [];\nlet strategyNotes = '';\n\nif (jsonMatch) {\n  try {\n    const parsed = JSON.parse(jsonMatch[0]);\n    ideas = parsed.ideas || [];\n    strategyNotes = parsed.strategy_notes || '';\n  } catch(e) {\n    return [{ json: {\n      success: false,\n      error: 'Impossibile parsare la risposta AI: ' + e.message\n    } }];\n  }\n} else {\n  return [{ json: {\n    success: false,\n    error: 'Nessun JSON trovato nella risposta AI'\n  } }];\n}\n\n// Validate and clean ideas\nideas = ideas.map((idea, i) => ({\n  title: idea.title || 'Idea ' + (i + 1),\n  subtitle: idea.subtitle || '',\n  description: idea.description || '',\n  target_keywords: Array.isArray(idea.target_keywords) ? idea.target_keywords : [],\n  primary_keyword: idea.primary_keyword || '',\n  estimated_volume: parseInt(idea.estimated_volume) || 0,\n  difficulty: idea.difficulty || 'media',\n  content_type: idea.content_type || 'guida',\n  priority: parseInt(idea.priority) || (i + 1)\n}));\n\nreturn [{ json: {\n  success: true,\n  ideas: ideas,\n  strategy_notes: strategyNotes,\n  meta: {\n    total_ideas: ideas.length,\n    queries_used: prevData.queriesUsed || [],\n    competitor_articles_analyzed: (prevData.articles || []).length,\n    timestamp: new Date().toISOString()\n  }\n} }];"
+      },
+      "id": "format-response",
+      "name": "Formatta Risposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2528,
+        304
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI: Genera Query di Ricerca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Genera Query di Ricerca": {
+      "main": [
+        [
+          {
+            "node": "Parse Query AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Query AI": {
+      "main": [
+        [
+          {
+            "node": "DataForSEO SERP API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DataForSEO SERP API": {
+      "main": [
+        [
+          {
+            "node": "Raccogli e Deduplica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Raccogli e Deduplica": {
+      "main": [
+        [
+          {
+            "node": "DataForSEO Keywords API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DataForSEO Keywords API": {
+      "main": [
+        [
+          {
+            "node": "Merge Keyword Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Keyword Data": {
+      "main": [
+        [
+          {
+            "node": "AI: Genera Idee Articoli",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Genera Idee Articoli": {
+      "main": [
+        [
+          {
+            "node": "Formatta Risposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatta Risposta": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "13f6d686-5441-4cca-8fe8-f8bfd379d498",
+  "activeVersionId": "13f6d686-5441-4cca-8fe8-f8bfd379d498",
+  "versionCounter": 7,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-07T12:48:13.225Z",
+      "createdAt": "2026-02-07T12:48:13.225Z",
+      "role": "workflow:owner",
+      "workflowId": "QKY630kLCvOBEVil",
+      "projectId": "lVd1VtX5kCyGsdRU",
+      "project": {
+        "updatedAt": "2025-12-11T15:28:34.265Z",
+        "createdAt": "2025-12-06T08:29:19.886Z",
+        "id": "lVd1VtX5kCyGsdRU",
+        "name": "Andrea Marrano <andrea.marrano92@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "025b2fdc-0769-4611-a3a9-f3379d6b0c50",
+        "projectRelations": [
+          {
+            "updatedAt": "2025-12-06T08:29:19.887Z",
+            "createdAt": "2025-12-06T08:29:19.887Z",
+            "userId": "025b2fdc-0769-4611-a3a9-f3379d6b0c50",
+            "projectId": "lVd1VtX5kCyGsdRU",
+            "user": {
+              "updatedAt": "2026-02-07T00:00:25.000Z",
+              "createdAt": "2025-12-06T08:29:19.027Z",
+              "id": "025b2fdc-0769-4611-a3a9-f3379d6b0c50",
+              "email": "andrea.marrano92@gmail.com",
+              "firstName": "Andrea",
+              "lastName": "Marrano",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-12-11T15:28:38.063Z",
+                "personalization_survey_n8n_version": "1.122.5"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "wzNBwocIe8cGsTxK",
+                "userActivatedAt": 1767367534962,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1770210149774
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-02-07",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-02-07T13:23:46.000Z",
+    "createdAt": "2026-02-07T13:04:21.466Z",
+    "versionId": "13f6d686-5441-4cca-8fe8-f8bfd379d498",
+    "workflowId": "QKY630kLCvOBEVil",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "seo-content-ideas",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "webhook-trigger",
+        "name": "Webhook Trigger",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          256,
+          304
+        ],
+        "webhookId": "REPLACE_WITH_WEBHOOK_ID",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "NZcE8PYjuCxc0c1R",
+            "name": "Header Auth account 5"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "modelId": {
+            "__rl": true,
+            "value": "gpt-4.1-mini",
+            "mode": "list",
+            "cachedResultName": "GPT-4.1-MINI"
+          },
+          "messages": {
+            "values": [
+              {
+                "content": "={{ 'Sei un esperto SEO italiano. Dato il seguente contesto di un sito e-commerce, genera 5-8 query Google informazionali in italiano che potenziali clienti cercherebbero.\\n\\nContesto sito:\\n' + $json.body.context + '\\n\\nRispondi SOLO con un JSON valido: {\"queries\": [\"query1\", \"query2\", ...]}' }}"
+              }
+            ]
+          },
+          "options": {
+            "maxTokens": 500,
+            "temperature": 0.7
+          }
+        },
+        "id": "ai-generate-queries",
+        "name": "AI: Genera Query di Ricerca",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 1,
+        "position": [
+          480,
+          304
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "LPQYv0QHDkUNWVI7",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse AI response to extract queries\nconst aiResponse = $input.first().json;\nlet text = aiResponse.message?.content || aiResponse.text || JSON.stringify(aiResponse);\n\n// Try to extract JSON from the response\nconst jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\nlet queries = [];\n\nif (jsonMatch) {\n  try {\n    const parsed = JSON.parse(jsonMatch[0]);\n    queries = parsed.queries || [];\n  } catch(e) {\n    // Fallback: split by newlines\n    queries = text.split('\\n').filter(q => q.trim().length > 3).slice(0, 8);\n  }\n}\n\nconst context = $('Webhook Trigger').first().json.body.context || '';\n\nreturn queries.map(q => ({ json: { query: q, context: context } }));"
+        },
+        "id": "parse-queries",
+        "name": "Parse Query AI",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          832,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.dataforseo.com/v3/serp/google/organic/live",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpBasicAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify([{ keyword: $json.query, location_name: 'Italy', language_name: 'Italian', depth: 10 }]) }}",
+          "options": {}
+        },
+        "id": "dataforseo-serp",
+        "name": "DataForSEO SERP API",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [
+          1056,
+          304
+        ],
+        "credentials": {
+          "httpBasicAuth": {
+            "id": "REPLACE_WITH_DATAFORSEO_CREDENTIAL_ID",
+            "name": "DataForSEO API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Collect all SERP results, deduplicate by domain, extract candidate keywords\nconst allItems = $input.all();\nconst seenDomains = new Set();\nconst articles = [];\nconst queriesUsed = [];\n\nfor (const item of allItems) {\n  const tasks = item.json.tasks || [];\n  for (const task of tasks) {\n    if (task.data?.keyword) queriesUsed.push(task.data.keyword);\n    const results = task.result || [];\n    for (const resultSet of results) {\n      const items_arr = resultSet.items || [];\n      for (const r of items_arr) {\n        if (r.type !== 'organic') continue;\n        const domain = r.domain || '';\n        if (seenDomains.has(domain)) continue;\n        seenDomains.add(domain);\n        articles.push({\n          url: r.url || '',\n          title: r.title || '',\n          description: r.description || '',\n          position: r.rank_absolute || 0,\n          domain: domain\n        });\n      }\n    }\n  }\n}\n\n// Take top 20 most relevant\narticles.sort((a, b) => a.position - b.position);\nconst topArticles = articles.slice(0, 20);\n\n// Extract candidate keywords from titles\nconst stopWords = new Set(['il','lo','la','i','gli','le','un','una','di','del','dello','della','dei','degli','delle','a','al','allo','alla','ai','agli','alle','da','dal','dallo','dalla','dai','dagli','dalle','in','nel','nello','nella','nei','negli','nelle','con','su','sul','sullo','sulla','sui','sugli','sulle','per','tra','fra','e','o','ma','che','come','quando','se','non','più','molto','anche','sono','è','ha','ho','hanno','essere','avere']);\n\nconst keywordCandidates = [];\nfor (const article of topArticles) {\n  const words = article.title.toLowerCase()\n    .replace(/[^a-zàèéìòù0-9\\s]/gi, '')\n    .split(/\\s+/)\n    .filter(w => w.length > 2 && !stopWords.has(w));\n  \n  // 2-3 word combinations\n  for (let i = 0; i < words.length - 1; i++) {\n    keywordCandidates.push(words[i] + ' ' + words[i+1]);\n    if (i < words.length - 2) {\n      keywordCandidates.push(words[i] + ' ' + words[i+1] + ' ' + words[i+2]);\n    }\n  }\n}\n\n// Deduplicate and take top 15\nconst uniqueKws = [...new Set(keywordCandidates)].slice(0, 15);\n\nconst context = $('Webhook Trigger').first().json.body.context || '';\n\nreturn [{ json: {\n  articles: topArticles,\n  candidateKeywords: uniqueKws,\n  queriesUsed: queriesUsed,\n  context: context\n} }];"
+        },
+        "id": "collect-deduplicate",
+        "name": "Raccogli e Deduplica",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1280,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpBasicAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify([{ keywords: $json.candidateKeywords.slice(0, 15), location_name: 'Italy', language_name: 'Italian', search_partners: false }]) }}",
+          "options": {}
+        },
+        "id": "dataforseo-keywords",
+        "name": "DataForSEO Keywords API",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [
+          1504,
+          304
+        ],
+        "credentials": {
+          "httpBasicAuth": {
+            "id": "REPLACE_WITH_DATAFORSEO_CREDENTIAL_ID",
+            "name": "DataForSEO API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse keyword data and merge with SERP data\nconst keywordResponse = $input.first().json;\nconst prevData = $('Raccogli e Deduplica').first().json;\n\nconst tasks = keywordResponse.tasks || [];\nconst task = tasks[0] || {};\nconst results = task.result || [];\n\nconst keywordData = {};\nfor (const r of results) {\n  keywordData[r.keyword] = {\n    volume: r.search_volume || 0,\n    competition: r.competition || 'UNSPECIFIED',\n    cpc: r.cpc || 0,\n    competition_index: r.competition_index || 0\n  };\n}\n\nreturn [{ json: {\n  articles: prevData.articles,\n  keywordData: keywordData,\n  queriesUsed: prevData.queriesUsed,\n  context: prevData.context\n} }];"
+        },
+        "id": "merge-keyword-data",
+        "name": "Merge Keyword Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1728,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "modelId": {
+            "__rl": true,
+            "value": "gpt-4.1-mini",
+            "mode": "list",
+            "cachedResultName": "GPT-4.1-MINI"
+          },
+          "messages": {
+            "values": [
+              {
+                "content": "={{ 'Sei un content strategist SEO esperto in italiano. Analizza i dati seguenti e genera 8-12 idee di articoli originali.\\n\\n## Contesto sito\\n' + $json.context + '\\n\\n## Articoli competitor (titoli e snippet)\\n' + $json.articles.map(a => '- ' + a.title + ': ' + a.description).join('\\n') + '\\n\\n## Dati keyword (volume, competizione)\\n' + JSON.stringify($json.keywordData) + '\\n\\nGenera idee che:\\n- Si differenzino dai competitor\\n- Targetizzino keyword con volume reale\\n- Siano pertinenti alla nicchia del sito\\n\\nRispondi SOLO con JSON valido:\\n{\\n  \"ideas\": [{\\n    \"title\": \"...\",\\n    \"subtitle\": \"...\",\\n    \"description\": \"Breve descrizione del contenuto proposto\",\\n    \"target_keywords\": [\"kw1\", \"kw2\"],\\n    \"primary_keyword\": \"kw1\",\\n    \"estimated_volume\": 1200,\\n    \"difficulty\": \"bassa|media|alta\",\\n    \"content_type\": \"guida|listicle|recensione|confronto|tutorial|case-study\",\\n    \"priority\": 1\\n  }],\\n  \"strategy_notes\": \"Nota strategica sulla direzione editoriale...\"\\n}' }}"
+              }
+            ]
+          },
+          "options": {
+            "maxTokens": 3000,
+            "temperature": 0.7
+          }
+        },
+        "id": "ai-generate-ideas",
+        "name": "AI: Genera Idee Articoli",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 1,
+        "position": [
+          1952,
+          304
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "LPQYv0QHDkUNWVI7",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse AI ideas response and format final output\nconst aiResponse = $input.first().json;\nconst prevData = $('Merge Keyword Data').first().json;\n\nlet text = aiResponse.message?.content || aiResponse.text || JSON.stringify(aiResponse);\n\n// Extract JSON from response\nconst jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\nlet ideas = [];\nlet strategyNotes = '';\n\nif (jsonMatch) {\n  try {\n    const parsed = JSON.parse(jsonMatch[0]);\n    ideas = parsed.ideas || [];\n    strategyNotes = parsed.strategy_notes || '';\n  } catch(e) {\n    return [{ json: {\n      success: false,\n      error: 'Impossibile parsare la risposta AI: ' + e.message\n    } }];\n  }\n} else {\n  return [{ json: {\n    success: false,\n    error: 'Nessun JSON trovato nella risposta AI'\n  } }];\n}\n\n// Validate and clean ideas\nideas = ideas.map((idea, i) => ({\n  title: idea.title || 'Idea ' + (i + 1),\n  subtitle: idea.subtitle || '',\n  description: idea.description || '',\n  target_keywords: Array.isArray(idea.target_keywords) ? idea.target_keywords : [],\n  primary_keyword: idea.primary_keyword || '',\n  estimated_volume: parseInt(idea.estimated_volume) || 0,\n  difficulty: idea.difficulty || 'media',\n  content_type: idea.content_type || 'guida',\n  priority: parseInt(idea.priority) || (i + 1)\n}));\n\nreturn [{ json: {\n  success: true,\n  ideas: ideas,\n  strategy_notes: strategyNotes,\n  meta: {\n    total_ideas: ideas.length,\n    queries_used: prevData.queriesUsed || [],\n    competitor_articles_analyzed: (prevData.articles || []).length,\n    timestamp: new Date().toISOString()\n  }\n} }];"
+        },
+        "id": "format-response",
+        "name": "Formatta Risposta",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2304,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify($json) }}",
+          "options": {}
+        },
+        "id": "respond-webhook",
+        "name": "Respond to Webhook",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          2528,
+          304
+        ]
+      }
+    ],
+    "connections": {
+      "Webhook Trigger": {
+        "main": [
+          [
+            {
+              "node": "AI: Genera Query di Ricerca",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI: Genera Query di Ricerca": {
+        "main": [
+          [
+            {
+              "node": "Parse Query AI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Query AI": {
+        "main": [
+          [
+            {
+              "node": "DataForSEO SERP API",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DataForSEO SERP API": {
+        "main": [
+          [
+            {
+              "node": "Raccogli e Deduplica",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Raccogli e Deduplica": {
+        "main": [
+          [
+            {
+              "node": "DataForSEO Keywords API",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DataForSEO Keywords API": {
+        "main": [
+          [
+            {
+              "node": "Merge Keyword Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Keyword Data": {
+        "main": [
+          [
+            {
+              "node": "AI: Genera Idee Articoli",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI: Genera Idee Articoli": {
+        "main": [
+          [
+            {
+              "node": "Formatta Risposta",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Formatta Risposta": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Andrea Marrano",
+    "name": "Version 13f6d686",
+    "description": "",
+    "autosaved": true,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-02-07T13:23:46.023Z",
+        "id": 276,
+        "workflowId": "QKY630kLCvOBEVil",
+        "versionId": "13f6d686-5441-4cca-8fe8-f8bfd379d498",
+        "event": "activated",
+        "userId": "025b2fdc-0769-4611-a3a9-f3379d6b0c50"
+      }
+    ]
+  }
+}

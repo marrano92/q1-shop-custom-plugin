@@ -34,6 +34,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<span class="q1-budget-alert q1-budget-exceeded"><?php esc_html_e( 'Limite raggiunto', 'q1-shop-stripe-alert' ); ?></span>
 				<?php endif; ?>
 			</div>
+			<div class="q1-budget-card">
+				<span class="q1-budget-label"><?php esc_html_e( 'Idee Articoli', 'q1-shop-stripe-alert' ); ?></span>
+				<span class="q1-budget-value <?php echo esc_attr( $stats['ideas_today'] >= $stats['ideas_limit'] * 0.8 ? 'q1-budget-warning' : '' ); ?>">
+					<?php echo esc_html( $stats['ideas_today'] . ' / ' . $stats['ideas_limit'] ); ?>
+				</span>
+				<span class="q1-budget-sublabel"><?php esc_html_e( 'generazioni oggi', 'q1-shop-stripe-alert' ); ?></span>
+				<?php if ( $stats['ideas_today'] >= $stats['ideas_limit'] * 0.8 && $stats['ideas_today'] < $stats['ideas_limit'] ) : ?>
+					<span class="q1-budget-alert"><?php esc_html_e( 'Quasi al limite!', 'q1-shop-stripe-alert' ); ?></span>
+				<?php elseif ( $stats['ideas_today'] >= $stats['ideas_limit'] ) : ?>
+					<span class="q1-budget-alert q1-budget-exceeded"><?php esc_html_e( 'Limite raggiunto', 'q1-shop-stripe-alert' ); ?></span>
+				<?php endif; ?>
+			</div>
 		</div>
 		<p class="description"><?php esc_html_e( 'I contatori si resettano automaticamente a mezzanotte.', 'q1-shop-stripe-alert' ); ?></p>
 	</div>

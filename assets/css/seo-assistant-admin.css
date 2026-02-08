@@ -245,3 +245,117 @@
 .q1-seo-detail-row td { background: #f9f9f9; padding: 0 !important; border-top: none; }
 .q1-seo-detail-inner { padding: 15px 20px; overflow: hidden; }
 .q1-seo-detail-toggle { margin-right: 5px; }
+
+/* === Content Ideas === */
+
+/* Context box */
+.q1-ideas-context-box { margin-top: 15px; }
+.q1-ideas-context-box textarea { font-family: monospace; font-size: 13px; }
+.q1-ideas-save-status { margin-left: 10px; font-style: italic; color: #666; }
+
+/* Ideas grid */
+.q1-ideas-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+	gap: 16px;
+	margin: 15px 0;
+}
+
+/* Idea card */
+.q1-idea-card {
+	background: #fff;
+	border: 1px solid #ccd0d4;
+	border-radius: 4px;
+	padding: 16px;
+	position: relative;
+	transition: box-shadow 0.2s;
+}
+.q1-idea-card:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
+
+.q1-idea-title {
+	font-size: 15px;
+	font-weight: 600;
+	margin-bottom: 4px;
+	color: #1d2327;
+}
+
+.q1-idea-subtitle {
+	font-size: 13px;
+	color: #50575e;
+	margin-bottom: 8px;
+	font-style: italic;
+}
+
+.q1-idea-description {
+	font-size: 13px;
+	color: #3c434a;
+	line-height: 1.5;
+	margin-bottom: 12px;
+}
+
+/* Idea meta row */
+.q1-idea-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	margin-bottom: 10px;
+}
+
+.q1-idea-keyword-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 500;
+	background: #e7f5ff;
+	color: #1971c2;
+}
+
+.q1-idea-volume {
+	font-size: 12px;
+	color: #50575e;
+	font-weight: 500;
+}
+
+/* Generic idea badge */
+.q1-idea-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 500;
+}
+
+/* Difficulty badges */
+.q1-idea-badge--bassa,
+.q1-idea-badge--facile { background: #e8f5e9; color: #2e7d32; }
+.q1-idea-badge--media { background: #fff3e0; color: #e65100; }
+.q1-idea-badge--alta,
+.q1-idea-badge--difficile { background: #fce4ec; color: #c62828; }
+
+/* Type badge */
+.q1-idea-badge--type { background: #f3e5f5; color: #7b1fa2; }
+
+/* Priority badges */
+.q1-idea-badge--priority-1 { background: #c62828; color: #fff; position: absolute; top: 10px; right: 10px; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; padding: 0; font-weight: 700; }
+.q1-idea-badge--priority-2 { background: #e65100; color: #fff; position: absolute; top: 10px; right: 10px; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; padding: 0; font-weight: 700; }
+.q1-idea-badge--priority-3 { background: #f9a825; color: #fff; position: absolute; top: 10px; right: 10px; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; padding: 0; font-weight: 700; }
+
+/* Card actions */
+.q1-idea-actions { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e4e7; }
+
+/* Strategy notes */
+.q1-ideas-strategy-notes {
+	background: #f0f6fc;
+	border-left: 4px solid #2271b1;
+	padding: 12px 16px;
+	margin: 15px 0;
+	border-radius: 0 4px 4px 0;
+}
+.q1-ideas-strategy-notes h3 { margin: 0 0 6px; font-size: 14px; }
+.q1-ideas-strategy-notes p { margin: 0; font-size: 13px; line-height: 1.5; }
+
+/* History section */
+.q1-ideas-history-section .q1-ideas-history-toggle .dashicons { font-size: 16px; width: 16px; height: 16px; vertical-align: middle; }
+.q1-ideas-history-detail .q1-seo-detail-inner { padding: 15px 20px; }

@@ -84,6 +84,21 @@ class Q1_Shop_SEO_Settings {
 				'description' => __( 'Numero massimo di ricerche keyword al giorno', 'q1-shop-stripe-alert' ),
 			)
 		);
+
+		add_settings_field(
+			'daily_ideas_limit',
+			__( 'Limite idee articoli giornaliero', 'q1-shop-stripe-alert' ),
+			array( $this, 'render_field_number' ),
+			'q1-seo-settings',
+			self::SECTION_ID,
+			array(
+				'field'       => 'daily_ideas_limit',
+				'default'     => 5,
+				'min'         => 1,
+				'max'         => 20,
+				'description' => __( 'Numero massimo di generazioni idee articoli al giorno', 'q1-shop-stripe-alert' ),
+			)
+		);
 	}
 
 	public function render_section_description() {
@@ -162,6 +177,11 @@ class Q1_Shop_SEO_Settings {
 			: 50;
 		$sanitized['daily_keyword_limit'] = max( 1, min( 200, $sanitized['daily_keyword_limit'] ) );
 
+		$sanitized['daily_ideas_limit'] = isset( $input['daily_ideas_limit'] )
+			? absint( $input['daily_ideas_limit'] )
+			: 5;
+		$sanitized['daily_ideas_limit'] = max( 1, min( 20, $sanitized['daily_ideas_limit'] ) );
+
 		return $sanitized;
 	}
 
@@ -186,12 +206,15 @@ class Q1_Shop_SEO_Settings {
 		$today         = gmdate( 'Y-m-d' );
 		$audit_limit   = (int) self::get_option( 'daily_audit_limit', 20 );
 		$keyword_limit = (int) self::get_option( 'daily_keyword_limit', 50 );
+		$ideas_limit   = (int) self::get_option( 'daily_ideas_limit', 5 );
 
 		return array(
 			'keyword_today' => (int) get_transient( 'q1_seo_kw_count_' . $today ),
 			'keyword_limit' => $keyword_limit,
 			'audit_today'   => (int) get_transient( 'q1_seo_audit_count_' . $today ),
 			'audit_limit'   => $audit_limit,
+			'ideas_today'   => (int) get_transient( 'q1_seo_ideas_count_' . $today ),
+			'ideas_limit'   => $ideas_limit,
 			'date'          => $today,
 		);
 	}

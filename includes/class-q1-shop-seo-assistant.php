@@ -105,7 +105,17 @@ class Q1_Shop_SEO_Assistant {
 			array( $this, 'render_seo_audit_page' )
 		);
 
-		// Sottomenu 3: Impostazioni.
+		// Sottomenu 3: Idee Articoli.
+		add_submenu_page(
+			'q1-seo-assistant',
+			__( 'Idee Articoli', 'q1-shop-stripe-alert' ),
+			__( 'Idee Articoli', 'q1-shop-stripe-alert' ),
+			'manage_options',
+			'q1-seo-content-ideas',
+			array( $this, 'render_content_ideas_page' )
+		);
+
+		// Sottomenu 4: Impostazioni.
 		add_submenu_page(
 			'q1-seo-assistant',
 			__( 'Impostazioni', 'q1-shop-stripe-alert' ),
@@ -126,6 +136,7 @@ class Q1_Shop_SEO_Assistant {
 		$seo_pages = array(
 			'toplevel_page_q1-seo-assistant',
 			'ai-seo-assistant_page_q1-seo-audit',
+			'ai-seo-assistant_page_q1-seo-content-ideas',
 			'ai-seo-assistant_page_q1-seo-settings',
 		);
 
@@ -217,6 +228,43 @@ class Q1_Shop_SEO_Assistant {
 			) );
 		}
 
+		// Content Ideas JS (only on ideas page).
+		if ( 'ai-seo-assistant_page_q1-seo-content-ideas' === $hook ) {
+			wp_enqueue_script(
+				'q1-seo-content-ideas',
+				Q1_SHOP_SEO_URL . 'assets/js/content-ideas.js',
+				array( 'jquery' ),
+				Q1_SHOP_SEO_VERSION,
+				true
+			);
+
+			wp_localize_script( 'q1-seo-content-ideas', 'q1SeoIdeas', array(
+				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+				'nonce'   => wp_create_nonce( 'q1_seo_ideas_nonce' ),
+				'strings' => array(
+					'analyze'          => __( 'Analizza Sito', 'q1-shop-stripe-alert' ),
+					'analyzing'        => __( 'Analisi in corso...', 'q1-shop-stripe-alert' ),
+					'saveContext'      => __( 'Salva Contesto', 'q1-shop-stripe-alert' ),
+					'saving'           => __( 'Salvataggio...', 'q1-shop-stripe-alert' ),
+					'saved'            => __( 'Contesto salvato!', 'q1-shop-stripe-alert' ),
+					'generate'         => __( 'Inizia Ricerca', 'q1-shop-stripe-alert' ),
+					'generating'       => __( 'Generazione in corso...', 'q1-shop-stripe-alert' ),
+					'generateWait'     => __( 'Potrebbe richiedere fino a 60 secondi.', 'q1-shop-stripe-alert' ),
+					'exportCsv'        => __( 'Esporta CSV', 'q1-shop-stripe-alert' ),
+					'createDraft'      => __( 'Crea bozza', 'q1-shop-stripe-alert' ),
+					'confirmDraft'     => __( 'Creare una bozza articolo per "%s"?', 'q1-shop-stripe-alert' ),
+					'noIdeas'          => __( 'Nessuna idea generata.', 'q1-shop-stripe-alert' ),
+					'connectionError'  => __( 'Errore di connessione.', 'q1-shop-stripe-alert' ),
+					'strategyNotes'    => __( 'Note strategiche', 'q1-shop-stripe-alert' ),
+					'lastSaved'        => __( 'Ultimo salvataggio:', 'q1-shop-stripe-alert' ),
+					'volume'           => __( 'Volume', 'q1-shop-stripe-alert' ),
+					'difficulty'       => __( 'Difficoltà', 'q1-shop-stripe-alert' ),
+					'type'             => __( 'Tipo', 'q1-shop-stripe-alert' ),
+					'priority'         => __( 'Priorità', 'q1-shop-stripe-alert' ),
+				),
+			) );
+		}
+
 		// SEO Audit JS (on dedicated audit page).
 		if ( 'ai-seo-assistant_page_q1-seo-audit' === $hook ) {
 			wp_enqueue_script(
@@ -301,6 +349,19 @@ class Q1_Shop_SEO_Assistant {
 			include $template;
 		} else {
 			echo '<div class="wrap"><h1>' . esc_html__( 'SEO Audit', 'q1-shop-stripe-alert' ) . '</h1>'
+				. '<p>' . esc_html__( 'Pagina in costruzione.', 'q1-shop-stripe-alert' ) . '</p></div>';
+		}
+	}
+
+	/**
+	 * Render Content Ideas page.
+	 */
+	public function render_content_ideas_page() {
+		$template = Q1_SHOP_SEO_PATH . 'templates/admin/content-ideas-page.php';
+		if ( file_exists( $template ) ) {
+			include $template;
+		} else {
+			echo '<div class="wrap"><h1>' . esc_html__( 'Idee Articoli', 'q1-shop-stripe-alert' ) . '</h1>'
 				. '<p>' . esc_html__( 'Pagina in costruzione.', 'q1-shop-stripe-alert' ) . '</p></div>';
 		}
 	}
