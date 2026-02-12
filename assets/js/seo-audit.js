@@ -46,7 +46,7 @@
 					$btn.prop('disabled', false).show();
 					$error.show().find('p').text(q1SeoAudit.strings.error + ': ' + error);
 				},
-				timeout: 60000
+				timeout: 150000
 			});
 		},
 
@@ -127,7 +127,7 @@
 						$btn.prop('disabled', false);
 						$error.show().find('p').text(q1SeoAudit.strings.error + ': ' + error);
 					},
-					timeout: 60000
+					timeout: 150000
 				});
 			});
 

@@ -39,7 +39,7 @@ class Q1_Shop_SEO_Audit {
 				__( 'Analisi già in corso per questo contenuto. Attendi il completamento.', 'q1-shop-stripe-alert' )
 			);
 		}
-		set_transient( $lock_key, true, 60 );
+		set_transient( $lock_key, true, 180 );
 
 		// Check daily limit.
 		$limit_check = $this->check_daily_limit();
@@ -55,7 +55,8 @@ class Q1_Shop_SEO_Audit {
 			return $content_data;
 		}
 
-		// Send to n8n.
+		// Send to n8n — n8n audit workflows may take up to 2 minutes.
+		$this->n8n_client->set_timeout( 120 );
 		$response = $this->n8n_client->send_audit_request( $content_data );
 		if ( is_wp_error( $response ) ) {
 			delete_transient( $lock_key );
