@@ -57,6 +57,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-content-ideas.p
 // Load SEO Assistant class
 require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-seo-assistant.php';
 
+// Load Performance hardening (disable feeds, etc.)
+require_once plugin_dir_path(__FILE__) . 'includes/class-q1-shop-performance.php';
+
 /**
  * Class Q1_Shop_Stripe_Alert
  * 
@@ -127,6 +130,7 @@ new Q1_Shop_Keyword_Research();
 new Q1_Shop_SEO_Audit();
 new Q1_Shop_Content_Ideas();
 new Q1_Shop_SEO_Assistant(__FILE__);
+new Q1_Shop_Performance();
 
 add_filter('woocommerce_loop_add_to_cart_link', function($html, $product){
     if (! $product || ! $product->is_purchasable()) return $html;

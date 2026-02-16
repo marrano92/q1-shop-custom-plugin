@@ -79,7 +79,7 @@ class Q1_Shop_Keyword_Research {
 			'location'     => 'Italy',
 		);
 
-		$response = $this->n8n_client->send_keyword_request( $payload );
+		$response = $this->n8n_client->set_timeout( 40 )->send_keyword_request( $payload );
 
 		if ( is_wp_error( $response ) ) {
 			delete_transient( $lock_key );
